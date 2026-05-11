@@ -121,8 +121,8 @@ export default function QuantDashboard() {
   const [scanLoading,   setScanLoading]   = useState(false);
   const [riskAlerts,    setRiskAlerts]    = useState([]);
 
-  useEffect(() => { loadData(); fetchLivePrices(); const iv=setInterval(fetchLivePrices,60000); return ()=>clearInterval(iv); }, []);
-  useEffect(() => { if(Object.keys(livePrices).length>0) runRiskEngine(); }, [livePrices]);
+  useEffect(() => { loadData(); fetchLivePrices(); const iv=setInterval(fetchLivePrices,60000); return ()=>clearInterval(iv); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if(Object.keys(livePrices).length>0) runRiskEngine(); }, [livePrices]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── RISK ENGINE ──────────────────────────────────────────────────────────
   function runRiskEngine() {
@@ -318,8 +318,8 @@ Return ONLY this JSON (no markdown):
     return text.split("\n").map((line,i)=>{
       if(line.match(/^[📊💼🎯⚠️📅]/)) return <div key={i} style={{color:"#00ff88",fontWeight:"bold",marginTop:22,marginBottom:8,fontSize:14,borderBottom:"1px solid #00ff8815",paddingBottom:5}}>{line}</div>;
       if(line.includes("⭐⭐⭐")) return <div key={i} style={{color:"#00ff88",fontWeight:"bold",marginTop:14,marginBottom:4,fontSize:13,background:"#00ff8810",padding:"5px 10px",borderRadius:4,borderLeft:"3px solid #00ff88"}}>{line}</div>;
-      if(line.includes("⭐⭐")&&!line.includes("⭐⭐⭐")) return <div key={i} style={{color:"#ffcc00",fontWeight:"bold",marginTop:14,marginBottom:4,fontSize:13,background:"#ffcc0010",padding:"5px 10px",borderRadius:4,borderLeft:"3px solid #ffcc00"}}>{line}</div>;
-      if(line.includes("⭐")&&!line.includes("⭐⭐")) return <div key={i} style={{color:"#ff8844",fontWeight:"bold",marginTop:14,marginBottom:4,fontSize:13,background:"#ff884410",padding:"5px 10px",borderRadius:4,borderLeft:"3px solid #ff8844"}}>{line}</div>;
+      if((line.includes("⭐⭐"))&&(!line.includes("⭐⭐⭐"))) return <div key={i} style={{color:"#ffcc00",fontWeight:"bold",marginTop:14,marginBottom:4,fontSize:13,background:"#ffcc0010",padding:"5px 10px",borderRadius:4,borderLeft:"3px solid #ffcc00"}}>{line}</div>;
+      if((line.includes("⭐"))&&(!line.includes("⭐⭐"))) return <div key={i} style={{color:"#ff8844",fontWeight:"bold",marginTop:14,marginBottom:4,fontSize:13,background:"#ff884410",padding:"5px 10px",borderRadius:4,borderLeft:"3px solid #ff8844"}}>{line}</div>;
       if(line.startsWith("Entry:"))        return <div key={i} style={{color:"#00ff88",fontSize:12,paddingLeft:10,marginBottom:3,fontWeight:"bold"}}>🟢 {line}</div>;
       if(line.startsWith("Target:"))       return <div key={i} style={{color:"#00ccff",fontSize:12,paddingLeft:10,marginBottom:3,fontWeight:"bold"}}>🎯 {line}</div>;
       if(line.startsWith("Stop Loss:")||line.startsWith("Stop:")) return <div key={i} style={{color:"#ff4444",fontSize:12,paddingLeft:10,marginBottom:3,fontWeight:"bold"}}>🛑 {line}</div>;
