@@ -147,17 +147,19 @@ export default function QuantDashboard() {
 
   // ─── LIVE PRICES ──────────────────────────────────────────────────────────
   async function fetchLivePrices() {
-    const syms=[...new Set([...portfolio.map(p=>p.symbol),"SPY","QQQ","AMAT","AMD","AAPL","BTC-USD","SMH","GLD"])];
+    const syms=[...new Set([...portfolio.map(p=>p.symbol),"SPY","QQQ","AMAT","AMD","AAPL","SMH"])];
     const res={};
     await Promise.all(syms.map(async sym=>{
       try{
-        const r=await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=2d`);
+        const r=await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=2d&corsDomain=finance.yahoo.com`,{headers:{"User-Agent":"Mozilla/5.0"}});
         const d=await r.json(); const m=d?.chart?.result?.[0]?.meta;
         if(m){const c=m.regularMarketPrice,p=m.chartPreviousClose||m.previousClose; res[sym]={price:c,change:p?((c-p)/p)*100:0,high:m.regularMarketDayHigh,low:m.regularMarketDayLow,volume:m.regularMarketVolume,prev:p};}
       }catch{}
     }));
-    setLivePrices(res); setLastUpdated(new Date().toLocaleTimeString());
-    setPortfolio(prev=>prev.map(p=>{const l=res[p.symbol]; return l?{...p,value:l.price*p.shares,livePrice:l.price}:p;}));
+    if(Object.keys(res).length>0){
+      setLivePrices(res); setLastUpdated(new Date().toLocaleTimeString());
+      setPortfolio(prev=>prev.map(p=>{const l=res[p.symbol]; return l?{...p,value:l.price*p.shares,livePrice:l.price}:p;}));
+    }
   }
 
   // ─── STORAGE ──────────────────────────────────────────────────────────────
@@ -182,7 +184,7 @@ export default function QuantDashboard() {
   // ─── CLAUDE API ───────────────────────────────────────────────────────────
   async function callClaude(system, messages, search=true){
     const key = process.env.REACT_APP_ANTHROPIC_API_KEY;
-    const body={model:"claude-sonnet-4-20250514",max_tokens:2000,system,messages};
+    const body={model:"claude-opus-4-5",max_tokens:2000,system,messages};
     if(search) body.tools=[{type:"web_search_20250305",name:"web_search"}];
     const r=await fetch("https://api.anthropic.com/v1/messages",{
       method:"POST",
