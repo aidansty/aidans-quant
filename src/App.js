@@ -2,13 +2,13 @@
 import React, { useState, useEffect } from "react";
 
 const INITIAL_PORTFOLIO = [
-  { symbol: "USO",  shares: 0.33995,  avgPrice: 132.37, value: 45.26 },
-  { symbol: "NVDA", shares: 0.74883,  avgPrice: 200.31, value: 161.04 },
-  { symbol: "MU",   shares: 0.6869,   avgPrice: 436.74, value: 520.22 },
-  { symbol: "BITX", shares: 16.72725, avgPrice: 17.99,  value: 337.05 },
-  { symbol: "SPY",  shares: 6.39058,  avgPrice: 656.05, value: 4714.59 },
+  { symbol: "USO",  shares: 0.33995,  avgPrice: 132.37, value: 47.15 },
+  { symbol: "NVDA", shares: 0.74883,  avgPrice: 200.31, value: 164.52 },
+  { symbol: "MU",   shares: 0.78741,  avgPrice: 480.04, value: 628.74 },
+  { symbol: "BITX", shares: 16.72725, avgPrice: 17.99,  value: 350.77 },
+  { symbol: "SPY",  shares: 6.39058,  avgPrice: 656.05, value: 4724.43 },
 ];
-const PEAK_VALUE = 5978;
+const PEAK_VALUE = 6222;
 
 const WOLF_PROMPT = function(sym) {
   return "You are Agent Wolf - a Warren Buffett-style analyst. You see FUNDAMENTALS ONLY. No charts, no news.\nSearch for "+sym+" P/E ratio, revenue growth, earnings history, profit margins, debt, free cash flow.\nBased ONLY on fundamentals, give your vote.\nRespond in pure JSON only:\n{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":850,\"stop\":695,\"reasoning\":\"Strong earnings growth\",\"horizon_days\":5}";
@@ -45,7 +45,7 @@ export default function QuantDashboard() {
   const [briefing,      setBriefing]      = useState("");
   const [loading,       setLoading]       = useState(false);
   const [activeTab,     setActiveTab]     = useState("briefing");
-  const [cashBalance,   setCashBalance]   = useState(750);
+  const [cashBalance,   setCashBalance]   = useState(500);
   const [livePrices,    setLivePrices]    = useState({});
   const [lastUpdated,   setLastUpdated]   = useState(null);
   const [chatHistory,   setChatHistory]   = useState([]);
@@ -271,18 +271,22 @@ export default function QuantDashboard() {
     function flushTrade(key) {
       if(!tradeHeader) return;
       var f = {};
+      var currentField = null;
       tradeLines.forEach(function(l) {
-        if(/^(Ticker:|Symbol:)/i.test(l)) f.ticker = l.replace(/^(Ticker:|Symbol:)/i,"").trim();
-        if(/^Quality Gate:/i.test(l)) f.gate = l.replace(/^Quality Gate:/i,"").trim();
-        if(/^Strategy:/i.test(l)) f.strategy = l.replace(/^Strategy:/i,"").trim();
-        if(/^Entry:/i.test(l)) f.entry = l.replace(/^Entry:/i,"").trim();
-        if(/^Target:/i.test(l)) f.target = l.replace(/^Target:/i,"").trim();
-        if(/^(Stop Loss:|Stop:)/i.test(l)) f.stop = l.replace(/^(Stop Loss:|Stop:)/i,"").trim();
-        if(/^Time Window:/i.test(l)) f.time = l.replace(/^Time Window:/i,"").trim();
-        if(/^Why:|^Why this trade:|^Reasoning:|^Thesis:/i.test(l)) f.why = l.replace(/^Why this trade:|^Why:|^Reasoning:|^Thesis:/i,"").trim();
-        if(/^Position Size:/i.test(l)) f.size = l.replace(/^Position Size:/i,"").trim();
-        if(/^Risk:/i.test(l)) f.risk = l.replace(/^Risk:/i,"").trim();
-        if(/^Insider Signal:/i.test(l)) f.insider = l.replace(/^Insider Signal:/i,"").trim();
+        if(/^(Ticker:|Symbol:)/i.test(l)){ f.ticker = l.replace(/^(Ticker:|Symbol:)/i,"").trim(); currentField="ticker"; }
+        else if(/^Quality Gate:/i.test(l)){ f.gate = l.replace(/^Quality Gate:/i,"").trim(); currentField="gate"; }
+        else if(/^Strategy:/i.test(l)){ f.strategy = l.replace(/^Strategy:/i,"").trim(); currentField="strategy"; }
+        else if(/^Entry:/i.test(l)){ f.entry = l.replace(/^Entry:/i,"").trim(); currentField="entry"; }
+        else if(/^Target:/i.test(l)){ f.target = l.replace(/^Target:/i,"").trim(); currentField="target"; }
+        else if(/^(Stop Loss:|Stop:)/i.test(l)){ f.stop = l.replace(/^(Stop Loss:|Stop:)/i,"").trim(); currentField="stop"; }
+        else if(/^Time Window:/i.test(l)){ f.time = l.replace(/^Time Window:/i,"").trim(); currentField="time"; }
+        else if(/^(Why:|Why this trade:|Reasoning:|Thesis:)/i.test(l)){ f.why = l.replace(/^(Why this trade:|Why:|Reasoning:|Thesis:)/i,"").trim(); currentField="why"; }
+        else if(/^Position Size:/i.test(l)){ f.size = l.replace(/^Position Size:/i,"").trim(); currentField="size"; }
+        else if(/^Risk:/i.test(l)){ f.risk = l.replace(/^Risk:/i,"").trim(); currentField="risk"; }
+        else if(/^Insider Signal:/i.test(l)){ f.insider = l.replace(/^Insider Signal:/i,"").trim(); currentField="insider"; }
+        else if(currentField==="why" && l.trim()!==""){
+          f.why = f.why + " " + l.trim();
+        }
       });
       var isHigh = tradeHeader.includes("HIGH") || (tradeHeader.match(/\*{3}/) !== null) || tradeHeader.includes("HIGH CONVICTION");
       var isMed  = tradeHeader.includes("MED") || tradeHeader.includes("MEDIUM");
