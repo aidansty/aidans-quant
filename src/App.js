@@ -477,14 +477,14 @@ export default function QuantDashboard() {
           <div style={{fontSize:9,color:"#00ff88",letterSpacing:3}}>ASYMMETRIC AI FUND</div>
           <div style={{fontSize:18,fontWeight:"bold",color:"#fff"}}>Aidan's War Room</div>
           <div style={{fontSize:10,color:"#778877",marginTop:2}}>
-            Today: <span style={{color:dayChange>=0?"#00ff88":"#ff4444"}}>{dayChange>=0?"+":""}${dayChange.toFixed(2)}</span>
+            Today: <span style={{color:dayChange>=0?"#00ff88":"#ff4444"}}>{"$"}{dayChange>=0?"+":""}{dayChange.toFixed(2)}</span>
             {" · "}Drawdown: <span style={{color:drawdown>=-4?"#00ff88":drawdown>=-8?"#ffcc00":"#ff4444"}}>{drawdown.toFixed(1)}%</span>
           </div>
         </div>
         <div style={{textAlign:"right"}}>
           <div style={{fontSize:9,color:"#444",letterSpacing:2}}>TOTAL VALUE</div>
-          <div style={{fontSize:20,fontWeight:"bold",color:"#00ff88"}}>${totalValue.toFixed(2)}</div>
-          <div style={{fontSize:11,color:totalPnL>=0?"#00ff88":"#ff4444"}}>{totalPnL>=0?"+":""}${totalPnL.toFixed(2)} P&L</div>
+          <div style={{fontSize:20,fontWeight:"bold",color:"#00ff88"}}>{"$"}{totalValue.toFixed(2)}</div>
+          <div style={{fontSize:11,color:totalPnL>=0?"#00ff88":"#ff4444"}}>{"$"}{totalPnL>=0?"+":""}{totalPnL.toFixed(2)} P&L</div>
         </div>
       </div>
 
@@ -499,7 +499,7 @@ export default function QuantDashboard() {
           {Object.entries(livePrices).map(([sym,d])=>(
             <span key={sym} style={{display:"inline-flex",gap:4,alignItems:"center"}}>
               <span style={{color:"#778877",fontSize:10}}>{sym}</span>
-              <span style={{color:"#ffffff",fontSize:11,fontWeight:"bold"}}>${d.price?.toFixed(2)}</span>
+              <span style={{color:"#ffffff",fontSize:11,fontWeight:"bold"}}>{"$"}{d.price?.toFixed(2)}</span>
               <span style={{color:d.change>=0?"#00ff88":"#ff4444",fontSize:10}}>{d.change>=0?"▲":"▼"}{Math.abs(d.change).toFixed(2)}%</span>
             </span>
           ))}
@@ -518,7 +518,7 @@ export default function QuantDashboard() {
           <div>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
               <span style={{color:"#669966",fontSize:10,letterSpacing:2}}>{new Date().toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"}).toUpperCase()}</span>
-              <span style={{color:"#aaaaaa",fontSize:11}}>Cash: <span style={{color:"#00ff88",fontWeight:"bold"}}>${cashBalance.toFixed(2)}</span></span>
+              <span style={{color:"#aaaaaa",fontSize:11}}>Cash: <span style={{color:"#00ff88",fontWeight:"bold"}}>{"$"}{cashBalance.toFixed(2)}</span></span>
             </div>
             <button onClick={getDailyBriefing} disabled={loading} style={S.btn()}>
               {loading?"⟳ Quality Gate · Agent Analysis · Trade Plans...":"▶ GET FULL DAILY BRIEFING"}
@@ -624,7 +624,7 @@ export default function QuantDashboard() {
                           {vote.direction} · {((vote.conviction||0.5)*100).toFixed(0)}%
                         </span>
                       </div>
-                      {vote.entry&&<div style={{color:"#00ff8880",fontSize:11,marginBottom:2}}>Entry: ${vote.entry} · Target: ${vote.target} · Stop: ${vote.stop}</div>}
+                      {vote.entry&&<div style={{color:"#00ff8880",fontSize:11,marginBottom:2}}>Entry: {"$"}{vote.entry} · Target: {"$"}{vote.target} · Stop: {"$"}{vote.stop}</div>}
                       <div style={{color:"#bbbbbb",fontSize:11,lineHeight:1.5}}>{vote.reasoning}</div>
                     </div>
                   ))}
@@ -696,8 +696,8 @@ export default function QuantDashboard() {
                     </div>
                     <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
                       <span style={{color:"#aaaaaa",fontSize:10}}>Weight: {weight.toFixed(1)}%</span>
-                      <span style={{color:"#aaaaaa",fontSize:10}}>${p.value.toFixed(2)}</span>
-                      <span style={{color:"#ff444460",fontSize:10}}>Stop: ${(p.avgPrice*0.92).toFixed(2)}</span>
+                      <span style={{color:"#aaaaaa",fontSize:10}}>{"$"}{p.value.toFixed(2)}</span>
+                      <span style={{color:"#ff444460",fontSize:10}}>Stop: {"$"}{(p.avgPrice*0.92).toFixed(2)}</span>
                     </div>
                     <div style={{height:3,background:"#08080a",borderRadius:2}}>
                       <div style={{width:Math.min(weight,100)+"%",height:"100%",background:rc,borderRadius:2,opacity:0.7}}/>
@@ -734,17 +734,17 @@ export default function QuantDashboard() {
                       {atStop&&<span style={{color:"#ff6666",fontSize:10,marginLeft:8}}>🛑 STOP ZONE</span>}
                       {atTgt&&<span style={{color:"#00ddff",fontSize:10,marginLeft:8}}>🎯 TARGET ZONE</span>}
                     </div>
-                    <span style={{color:"#ddd",fontSize:13}}>${p.value.toFixed(2)}</span>
+                    <span style={{color:"#ddd",fontSize:13}}>{"$"}{p.value.toFixed(2)}</span>
                   </div>
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:live?4:0}}>
-                    <span style={{color:"#aaaaaa",fontSize:10}}>{p.shares.toFixed(4)}sh @ ${p.avgPrice.toFixed(2)}</span>
-                    <span style={{color:pnlPct>=0?"#00ff88":"#ff4444",fontSize:12,fontWeight:"bold"}}>{pnlPct>=0?"+":""}{pnlPct.toFixed(2)}% (${pnlD>=0?"+":""}${pnlD.toFixed(2)})</span>
+                    <span style={{color:"#aaaaaa",fontSize:10}}>{p.shares.toFixed(4)}sh @ {"$"}{p.avgPrice.toFixed(2)}</span>
+                    <span style={{color:pnlPct>=0?"#00ff88":"#ff4444",fontSize:12,fontWeight:"bold"}}>{pnlPct>=0?"+":""}{pnlPct.toFixed(2)}% ({"$"}{pnlD>=0?"+":""}{pnlD.toFixed(2)})</span>
                   </div>
                   {live&&(
                     <div style={{display:"flex",gap:10,fontSize:10}}>
-                      <span style={{color:"#999999"}}>Live:<span style={{color:"#ffffff"}}>${live.price?.toFixed(2)}</span></span>
-                      <span style={{color:"#999999"}}>H:<span style={{color:"#cccccc"}}>${live.high?.toFixed(2)}</span></span>
-                      <span style={{color:"#999999"}}>L:<span style={{color:"#cccccc"}}>${live.low?.toFixed(2)}</span></span>
+                      <span style={{color:"#999999"}}>Live:<span style={{color:"#ffffff"}}>{"$"}{live.price?.toFixed(2)}</span></span>
+                      <span style={{color:"#999999"}}>H:<span style={{color:"#cccccc"}}>{"$"}{live.high?.toFixed(2)}</span></span>
+                      <span style={{color:"#999999"}}>L:<span style={{color:"#cccccc"}}>{"$"}{live.low?.toFixed(2)}</span></span>
                       <span style={{color:live.change>=0?"#00ff8850":"#ff444450"}}>{live.change>=0?"▲":"▼"}{Math.abs(live.change).toFixed(2)}%</span>
                     </div>
                   )}
@@ -784,8 +784,8 @@ export default function QuantDashboard() {
                   <span style={{color:"#888888",fontSize:10}}>{t.date}</span>
                 </div>
                 <div style={{display:"flex",justifyContent:"space-between"}}>
-                  <span style={{color:"#eeeeee",fontSize:13}}>{t.symbol} — {t.shares}sh @ ${t.price}</span>
-                  <span style={{color:"#aaaaaa",fontSize:12}}>${t.total.toFixed(2)}</span>
+                  <span style={{color:"#eeeeee",fontSize:13}}>{t.symbol} — {t.shares}sh @ {"$"}{t.price}</span>
+                  <span style={{color:"#aaaaaa",fontSize:12}}>{"$"}{t.total.toFixed(2)}</span>
                 </div>
                 {t.note&&<div style={{color:"#777777",fontSize:10,marginTop:3}}>{t.note}</div>}
               </div>
