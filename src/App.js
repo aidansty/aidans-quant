@@ -249,7 +249,7 @@ export default function QuantDashboard() {
       ]);
       for(const [name,txt] of [["🐺 Wolf (Fundamentals)",wTxt],["📈 Cohen (Price Action)",cTxt],["🌐 Dalio (Macro)",dTxt]]){
         try{
-          const clean=txt.replace(/`{3}json|`{3}/g,"").trim();
+          const bt=String.fromCharCode(96);const clean=txt.split(bt+bt+bt+"json").join("").split(bt+bt+bt).join("").trim();
           const s=clean.indexOf("{"),e=clean.lastIndexOf("}");
           votes[name]=JSON.parse(clean.substring(s,e+1));
         }catch{votes[name]={direction:"HOLD",conviction:0.5,reasoning:txt.slice(0,150)};}
@@ -282,7 +282,7 @@ export default function QuantDashboard() {
         [{role:"user",content:"Score "+symbol+". Current price: $"+(live.price?live.price.toFixed(2):"unknown")+". Search for fundamentals, insider filings, and analyst data."}]
       );
       try{
-        const clean=txt.replace(/`{3}json|`{3}/g,"").trim();
+        const bt=String.fromCharCode(96);const clean=txt.split(bt+bt+bt+"json").join("").split(bt+bt+bt).join("").trim();
         const s=clean.indexOf("{"),e=clean.lastIndexOf("}");
         const parsed={...JSON.parse(clean.substring(s,e+1)),scoredAt:new Date().toLocaleTimeString()};
         const newFS={...factorScores,[symbol]:parsed};
