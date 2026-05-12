@@ -274,115 +274,137 @@ export default function QuantDashboard() {
       var f = {};
       var currentField = null;
       tradeLines.forEach(function(l) {
-        if(/^(Ticker:|Symbol:)/i.test(l)){ f.ticker = l.replace(/^(Ticker:|Symbol:)/i,"").trim(); currentField="ticker"; }
-        else if(/^Quality Gate:/i.test(l)){ f.gate = l.replace(/^Quality Gate:/i,"").trim(); currentField="gate"; }
-        else if(/^Strategy:/i.test(l)){ f.strategy = l.replace(/^Strategy:/i,"").trim(); currentField="strategy"; }
-        else if(/^Entry:/i.test(l)){ f.entry = l.replace(/^Entry:/i,"").trim(); currentField="entry"; }
-        else if(/^Target:/i.test(l)){ f.target = l.replace(/^Target:/i,"").trim(); currentField="target"; }
-        else if(/^(Stop Loss:|Stop:)/i.test(l)){ f.stop = l.replace(/^(Stop Loss:|Stop:)/i,"").trim(); currentField="stop"; }
-        else if(/^Time Window:/i.test(l)){ f.time = l.replace(/^Time Window:/i,"").trim(); currentField="time"; }
-        else if(/^(Why:|Why this trade:|Reasoning:|Thesis:)/i.test(l)){ f.why = l.replace(/^(Why this trade:|Why:|Reasoning:|Thesis:)/i,"").trim(); currentField="why"; }
-        else if(/^Position Size:/i.test(l)){ f.size = l.replace(/^Position Size:/i,"").trim(); currentField="size"; }
-        else if(/^Risk:/i.test(l)){ f.risk = l.replace(/^Risk:/i,"").trim(); currentField="risk"; }
-        else if(/^Insider Signal:/i.test(l)){ f.insider = l.replace(/^Insider Signal:/i,"").trim(); currentField="insider"; }
-        else if(currentField==="why" && l.trim()!==""){
-          f.why = f.why + " " + l.trim();
-        }
+        var lt = l.trim();
+        if(!lt) return;
+        if(/^(Ticker:|Symbol:)/i.test(lt)){ f.ticker=lt.replace(/^(Ticker:|Symbol:)/i,"").trim(); currentField="ticker"; }
+        else if(/^Quality Gate:/i.test(lt)){ f.gate=lt.replace(/^Quality Gate:/i,"").trim(); currentField="gate"; }
+        else if(/^Strategy:/i.test(lt)){ f.strategy=lt.replace(/^Strategy:/i,"").trim(); currentField="strategy"; }
+        else if(/^Entry:/i.test(lt)){ f.entry=lt.replace(/^Entry:/i,"").trim(); currentField="entry"; }
+        else if(/^Target:/i.test(lt)){ f.target=lt.replace(/^Target:/i,"").trim(); currentField="target"; }
+        else if(/^(Stop Loss:|Stop:)/i.test(lt)){ f.stop=lt.replace(/^(Stop Loss:|Stop:)/i,"").trim(); currentField="stop"; }
+        else if(/^Time Window:/i.test(lt)){ f.time=lt.replace(/^Time Window:/i,"").trim(); currentField="time"; }
+        else if(/^(Why:|Why this trade:|Reasoning:|Thesis:)/i.test(lt)){ f.why=lt.replace(/^(Why this trade:|Why:|Reasoning:|Thesis:)/i,"").trim(); currentField="why"; }
+        else if(/^Position Size:/i.test(lt)){ f.size=lt.replace(/^Position Size:/i,"").trim(); currentField="size"; }
+        else if(/^Risk:/i.test(lt)){ f.risk=lt.replace(/^Risk:/i,"").trim(); currentField="risk"; }
+        else if(/^Insider Signal:/i.test(lt)){ f.insider=lt.replace(/^Insider Signal:/i,"").trim(); currentField="insider"; }
+        else if(currentField==="why"){ f.why=(f.why||"")+" "+lt; }
+        else if(currentField==="risk"){ f.risk=(f.risk||"")+" "+lt; }
       });
-      var isHigh = tradeHeader.includes("HIGH") || (tradeHeader.match(/\*{3}/) !== null) || tradeHeader.includes("HIGH CONVICTION");
-      var isMed  = tradeHeader.includes("MED") || tradeHeader.includes("MEDIUM");
-      var bc = isHigh ? "#00ff88" : isMed ? "#ffcc00" : "#ff8844";
-      var bg = isHigh ? "#001a0d" : isMed ? "#1a1400" : "#1a0800";
-      var isLong = tradeHeader.includes("LONG") || tradeHeader.includes("UP");
+      var isHigh=tradeHeader.toUpperCase().includes("HIGH");
+      var isMed=tradeHeader.toUpperCase().includes("MEDIUM");
+      var bc=isHigh?"#00ff88":isMed?"#ffcc00":"#ff8844";
+      var bg=isHigh?"#001a0d":isMed?"#1a1400":"#1a0800";
+      var isLong=tradeHeader.toUpperCase().includes("LONG")||tradeHeader.toUpperCase().includes("UP");
       output.push(
-        React.createElement("div", {key:key, style:{border:"2px solid "+bc,borderRadius:8,marginBottom:18,overflow:"hidden",boxShadow:"0 0 24px "+bc+"40"}},
-          React.createElement("div", {style:{background:bc,padding:"9px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}},
-            React.createElement("span", {style:{color:"#000",fontWeight:"bold",fontSize:13}}, tradeHeader),
-            React.createElement("span", {style:{color:"#000",fontWeight:"bold",fontSize:12}}, isLong ? "LONG - GOING UP" : "SHORT - GOING DOWN")
+        React.createElement("div",{key:key,style:{border:"2px solid "+bc,borderRadius:8,marginBottom:18,overflow:"hidden",boxShadow:"0 0 20px "+bc+"30"}},
+          React.createElement("div",{style:{background:bc,padding:"9px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}},
+            React.createElement("span",{style:{color:"#000",fontWeight:"bold",fontSize:13}},tradeHeader),
+            React.createElement("span",{style:{color:"#000",fontWeight:"bold",fontSize:11}},isLong?"LONG - GOING UP":"SHORT - GOING DOWN")
           ),
-          React.createElement("div", {style:{background:bg,padding:"14px"}},
-            React.createElement("div", {style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}},
-              f.gate && React.createElement("div", {style:{background:"#ffffff10",borderRadius:5,padding:"7px 10px"}},
-                React.createElement("div", {style:{color:"#9988bb",fontSize:9,letterSpacing:2,marginBottom:2}}, "QUALITY GATE"),
-                React.createElement("div", {style:{color:"#cc99ff",fontSize:13,fontWeight:"bold"}}, f.gate)
+          React.createElement("div",{style:{background:bg,padding:"14px"}},
+            React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}},
+              f.gate&&React.createElement("div",{style:{background:"#ffffff10",borderRadius:5,padding:"6px 10px"}},
+                React.createElement("div",{style:{color:"#9988bb",fontSize:9,letterSpacing:2,marginBottom:2}},"QUALITY GATE"),
+                React.createElement("div",{style:{color:"#cc99ff",fontSize:12,fontWeight:"bold"}},f.gate)
               ),
-              f.strategy && React.createElement("div", {style:{background:"#ffffff10",borderRadius:5,padding:"7px 10px"}},
-                React.createElement("div", {style:{color:"#8899aa",fontSize:9,letterSpacing:2,marginBottom:2}}, "STRATEGY"),
-                React.createElement("div", {style:{color:"#88aaff",fontSize:12}}, f.strategy)
+              f.strategy&&React.createElement("div",{style:{background:"#ffffff10",borderRadius:5,padding:"6px 10px"}},
+                React.createElement("div",{style:{color:"#8899aa",fontSize:9,letterSpacing:2,marginBottom:2}},"STRATEGY"),
+                React.createElement("div",{style:{color:"#88aaff",fontSize:12}},f.strategy)
               ),
-              f.insider && React.createElement("div", {style:{background:"#ffffff10",borderRadius:5,padding:"7px 10px"}},
-                React.createElement("div", {style:{color:"#aa9988",fontSize:9,letterSpacing:2,marginBottom:2}}, "INSIDER SIGNAL"),
-                React.createElement("div", {style:{color:"#ffbb55",fontSize:12}}, f.insider)
+              f.insider&&React.createElement("div",{style:{background:"#ffffff10",borderRadius:5,padding:"6px 10px"}},
+                React.createElement("div",{style:{color:"#aa9988",fontSize:9,letterSpacing:2,marginBottom:2}},"INSIDER SIGNAL"),
+                React.createElement("div",{style:{color:"#ffbb55",fontSize:12}},f.insider)
               ),
-              f.time && React.createElement("div", {style:{background:"#ffffff10",borderRadius:5,padding:"7px 10px"}},
-                React.createElement("div", {style:{color:"#aaaa88",fontSize:9,letterSpacing:2,marginBottom:2}}, "TIME WINDOW"),
-                React.createElement("div", {style:{color:"#ffee88",fontSize:12}}, f.time)
+              f.time&&React.createElement("div",{style:{background:"#ffffff10",borderRadius:5,padding:"6px 10px"}},
+                React.createElement("div",{style:{color:"#aaaa88",fontSize:9,letterSpacing:2,marginBottom:2}},"TIME WINDOW"),
+                React.createElement("div",{style:{color:"#ffee88",fontSize:12}},f.time)
               )
             ),
-            React.createElement("div", {style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}},
-              React.createElement("div", {style:{background:"#003322",border:"2px solid #00ff8850",borderRadius:6,padding:"10px",textAlign:"center"}},
-                React.createElement("div", {style:{color:"#00ff8899",fontSize:9,letterSpacing:2,marginBottom:4}}, "ENTRY"),
-                React.createElement("div", {style:{fontSize:18}}, "🟢"),
-                React.createElement("div", {style:{color:"#00ff88",fontSize:12,marginTop:4,fontWeight:"bold"}}, f.entry||"-")
+            React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}},
+              React.createElement("div",{style:{background:"#003322",border:"2px solid #00ff8850",borderRadius:6,padding:"10px",textAlign:"center"}},
+                React.createElement("div",{style:{color:"#00ff8899",fontSize:9,letterSpacing:2,marginBottom:4}},"ENTRY"),
+                React.createElement("div",{style:{fontSize:16}},"🟢"),
+                React.createElement("div",{style:{color:"#00ff88",fontSize:12,marginTop:4,fontWeight:"bold"}},f.entry||"-")
               ),
-              React.createElement("div", {style:{background:"#001a33",border:"2px solid #00ccff50",borderRadius:6,padding:"10px",textAlign:"center"}},
-                React.createElement("div", {style:{color:"#00ccff99",fontSize:9,letterSpacing:2,marginBottom:4}}, "TARGET"),
-                React.createElement("div", {style:{fontSize:18}}, "🎯"),
-                React.createElement("div", {style:{color:"#00ccff",fontSize:12,marginTop:4,fontWeight:"bold"}}, f.target||"-")
+              React.createElement("div",{style:{background:"#001a33",border:"2px solid #00ccff50",borderRadius:6,padding:"10px",textAlign:"center"}},
+                React.createElement("div",{style:{color:"#00ccff99",fontSize:9,letterSpacing:2,marginBottom:4}},"TARGET"),
+                React.createElement("div",{style:{fontSize:16}},"🎯"),
+                React.createElement("div",{style:{color:"#00ccff",fontSize:12,marginTop:4,fontWeight:"bold"}},f.target||"-")
               ),
-              React.createElement("div", {style:{background:"#330000",border:"2px solid #ff444450",borderRadius:6,padding:"10px",textAlign:"center"}},
-                React.createElement("div", {style:{color:"#ff444499",fontSize:9,letterSpacing:2,marginBottom:4}}, "STOP LOSS"),
-                React.createElement("div", {style:{fontSize:18}}, "🛑"),
-                React.createElement("div", {style:{color:"#ff6666",fontSize:12,marginTop:4,fontWeight:"bold"}}, f.stop||"-")
+              React.createElement("div",{style:{background:"#330000",border:"2px solid #ff444450",borderRadius:6,padding:"10px",textAlign:"center"}},
+                React.createElement("div",{style:{color:"#ff444499",fontSize:9,letterSpacing:2,marginBottom:4}},"STOP LOSS"),
+                React.createElement("div",{style:{fontSize:16}},"🛑"),
+                React.createElement("div",{style:{color:"#ff6666",fontSize:12,marginTop:4,fontWeight:"bold"}},f.stop||"-")
               )
             ),
-            f.size && React.createElement("div", {style:{background:"#ffffff0a",borderRadius:5,padding:"7px 12px",marginBottom:10,display:"flex",alignItems:"center",gap:8}},
-              React.createElement("span", {style:{color:"#888888",fontSize:9,letterSpacing:2}}, "POSITION SIZE:"),
-              React.createElement("span", {style:{color:"#ffffff",fontSize:14,fontWeight:"bold"}}, f.size)
+            f.why&&React.createElement("div",{style:{background:"#ffffff06",borderRadius:5,padding:"10px 12px",marginBottom:8,borderLeft:"3px solid #ffffff20"}},
+              React.createElement("div",{style:{color:"#999999",fontSize:9,letterSpacing:2,marginBottom:5}},"WHY THIS TRADE"),
+              React.createElement("div",{style:{color:"#dddddd",fontSize:13,lineHeight:1.7}},f.why.trim())
             ),
-            f.why && React.createElement("div", {style:{background:"#ffffff06",borderRadius:5,padding:"10px 12px",marginBottom:10,borderLeft:"3px solid #ffffff25"}},
-              React.createElement("div", {style:{color:"#999999",fontSize:9,letterSpacing:2,marginBottom:5}}, "WHY THIS TRADE"),
-              React.createElement("div", {style:{color:"#dddddd",fontSize:13,lineHeight:1.7}}, f.why)
+            f.size&&React.createElement("div",{style:{background:"#ffffff08",borderRadius:5,padding:"6px 12px",marginBottom:8,display:"flex",alignItems:"center",gap:8}},
+              React.createElement("span",{style:{color:"#888888",fontSize:9,letterSpacing:2}},"POSITION SIZE:"),
+              React.createElement("span",{style:{color:"#ffffff",fontSize:14,fontWeight:"bold"}},f.size)
             ),
-            f.risk && React.createElement("div", {style:{background:"#ff000008",borderRadius:5,padding:"7px 12px",borderLeft:"3px solid #ff444450"}},
-              React.createElement("span", {style:{color:"#ff7755",fontSize:9,letterSpacing:2}}, "RISK: "),
-              React.createElement("span", {style:{color:"#ffaa88",fontSize:12}}, f.risk)
+            f.risk&&React.createElement("div",{style:{background:"#ff000008",borderRadius:5,padding:"6px 12px",borderLeft:"3px solid #ff444440"}},
+              React.createElement("span",{style:{color:"#ff7755",fontSize:9,letterSpacing:2}},"RISK: "),
+              React.createElement("span",{style:{color:"#ffaa88",fontSize:12}},f.risk.trim())
             )
           )
         )
       );
-      tradeLines = []; tradeHeader = ""; inTrade = false;
+      tradeLines=[]; tradeHeader=""; inTrade=false;
     }
 
-    while(i < lines.length){
-      var line = lines[i];
-      var isTradeStart = line.includes("LONG") || line.includes("SHORT") || line.includes("HIGH CONVICTION") || line.includes("MEDIUM CONVICTION") || line.includes("SPECULATIVE") || line.includes("CONVICTION:");
-      isTradeStart = isTradeStart && line.length < 200 && (i+1 < lines.length && /Quality Gate:|Strategy:|Entry:|Ticker:|Insider/i.test(lines[i+1]||""));
-      if(isTradeStart || (line.match(/^\[.*\]/) && line.includes("|")) || (line.includes("|") && (line.includes("LONG")||line.includes("SHORT")) && line.length < 200)){
+    while(i<lines.length){
+      var line=lines[i];
+      var lt=line.trim();
+
+      // Detect trade plan start - any line with conviction level + symbol + direction
+      var isTradeStart=(lt.toUpperCase().includes("HIGH CONVICTION")||lt.toUpperCase().includes("MEDIUM CONVICTION")||lt.toUpperCase().includes("SPECULATIVE"))&&lt.includes("|")&&lt.length<200;
+      // Also catch lines immediately followed by Quality Gate or Strategy
+      if(!isTradeStart&&lt.length<200&&(lt.toUpperCase().includes("LONG")||lt.toUpperCase().includes("SHORT"))&&lt.includes("|")){
+        isTradeStart=i+1<lines.length&&/Quality Gate:|Strategy:|Entry:|Insider/i.test(lines[i+1]||"");
+      }
+
+      if(isTradeStart){
         if(inTrade) flushTrade("t"+i);
-        inTrade = true; tradeHeader = line; i++; continue;
+        inTrade=true; tradeHeader=lt; i++; continue;
       }
       if(inTrade){
-        var nextIsSection = /^[📊💼🎯⚠️📅]/.test(lines[i]||"");
-        if(nextIsSection){ flushTrade("t"+i); }
-        else { tradeLines.push(line); i++; continue; }
+        if(/^[📊💼🎯⚠️📅]/.test(lt)||lt.toUpperCase().includes("HIGH CONVICTION")||lt.toUpperCase().includes("MEDIUM CONVICTION")){
+          flushTrade("t"+i);
+        } else {
+          tradeLines.push(lt); i++; continue;
+        }
       }
-      if(/^[📊💼🎯⚠️📅]/.test(line)||/^#+\s*[📊💼🎯⚠️📅]/.test(line)){
-        output.push(React.createElement("div",{key:i,style:{color:"#00ff88",fontWeight:"bold",marginTop:26,marginBottom:10,fontSize:15,borderBottom:"2px solid #00ff8835",paddingBottom:7}},line.replace(/^#+\s*/,"")));
-      } else if(line.toLowerCase().includes("circuit breaker")||line.includes("CIRCUIT")){
-        output.push(React.createElement("div",{key:i,style:{color:"#ff3333",fontWeight:"bold",fontSize:13,margin:"6px 0",background:"#ff000015",padding:"7px 12px",borderRadius:5,border:"1px solid #ff333330"}},line));
-      } else if(line.startsWith("|")&&!line.includes("---")){
-        var cells=line.split("|").filter(function(c){ return c.trim(); });
+
+      // Section headers — always green, always same style
+      if(/^[📊💼🎯⚠️📅]/.test(lt)||/^#+\s*[📊💼🎯⚠️📅]/.test(lt)){
+        output.push(React.createElement("div",{key:i,style:{color:"#00ff88",fontWeight:"bold",marginTop:24,marginBottom:8,fontSize:14,borderBottom:"2px solid #00ff8825",paddingBottom:6,letterSpacing:1}},lt.replace(/^#+\s*/,"")));
+      }
+      // Portfolio review lines — symbol with UP/DOWN/HOLD/TRIM
+      else if(/^\[?(UP|DOWN|HOLD|ADD|TRIM)/i.test(lt)||(/^(USO|NVDA|MU|BITX|SPY|AMAT|AMD|AAPL|MSFT)/i.test(lt)&&lt.length<150)){
+        output.push(React.createElement("div",{key:i,style:{padding:"6px 10px",background:"#0a0e18",borderRadius:4,marginBottom:4,fontSize:12,color:"#cccccc",borderLeft:"3px solid #1a2a1a"}},lt));
+      }
+      // Table rows
+      else if(lt.startsWith("|")&&!lt.includes("---")){
+        var cells=lt.split("|").filter(function(c){ return c.trim(); });
         var isHdr=i+1<lines.length&&(lines[i+1]||"").includes("---");
         output.push(React.createElement("div",{key:i,style:{display:"grid",gridTemplateColumns:"repeat("+cells.length+",1fr)",gap:3,marginBottom:3}},
-          cells.map(function(c,j){ return React.createElement("div",{key:j,style:{padding:"5px 8px",background:isHdr?"#1a2a1a":"#0c1018",border:"1px solid #1a2a1a",borderRadius:3,color:isHdr?"#00ff88":"#cccccc",fontSize:11,fontWeight:isHdr?"bold":"normal",textAlign:"center"}},c.trim()); })
+          cells.map(function(c,j){ return React.createElement("div",{key:j,style:{padding:"4px 8px",background:isHdr?"#1a2a1a":"#0c1018",border:"1px solid #1a2a1a",borderRadius:3,color:isHdr?"#00ff88":"#cccccc",fontSize:11,fontWeight:isHdr?"bold":"normal",textAlign:"center"}},c.trim()); })
         ));
-      } else if(line.startsWith("-")||line.startsWith("*")){
-        output.push(React.createElement("div",{key:i,style:{color:"#cccccc",paddingLeft:16,marginBottom:5,fontSize:13}},"→ "+line.slice(1).trim()));
-      } else if(line.trim()===""){
-        output.push(React.createElement("div",{key:i,style:{height:8}}));
-      } else {
-        output.push(React.createElement("div",{key:i,style:{color:"#cccccc",fontSize:13,marginBottom:4,lineHeight:1.65}},line));
+      }
+      // Bullet points
+      else if(lt.startsWith("-")||lt.startsWith("*")){
+        output.push(React.createElement("div",{key:i,style:{color:"#cccccc",paddingLeft:14,marginBottom:4,fontSize:12}},"→ "+lt.slice(1).trim()));
+      }
+      // Empty lines
+      else if(lt===""){
+        output.push(React.createElement("div",{key:i,style:{height:6}}));
+      }
+      // Everything else — plain text
+      else {
+        output.push(React.createElement("div",{key:i,style:{color:"#cccccc",fontSize:12,marginBottom:3,lineHeight:1.6}},lt));
       }
       i++;
     }
