@@ -194,7 +194,7 @@ export default function QuantDashboard() {
         target:targets.length?"$"+(targets.reduce(function(a,b){ return a+b; },0)/targets.length).toFixed(2):null,
         stop:stops.length?"$"+Math.min.apply(null,stops).toFixed(2):null};
       setAgentVotes(function(prev){ return Object.assign({},prev,{[symbol]:votes}); });
-    }catch(e){ console.error(e); }
+    }catch(e){ console.error(e); setAgentVotes(function(prev){ return Object.assign({},prev,{[symbol]:{_c:{symbol:symbol,consensus:'ERROR',buys:0,sells:0,holds:0,avgConv:'0',stars:'',entry:null,target:null,stop:null},'Wolf (Fundamentals)':{direction:'ERROR',conviction:0.5,reasoning:'API error: '+e.message},'Cohen (Price Action)':{direction:'ERROR',conviction:0.5,reasoning:'Check your API key in Vercel'},'Dalio (Macro)':{direction:'ERROR',conviction:0.5,reasoning:'Check console for details'}}}}); }}
     setAgentLoading(false);
   }
 
@@ -214,7 +214,7 @@ export default function QuantDashboard() {
         setFactorScores(newFS);
         localStorage.setItem("fs3",JSON.stringify(newFS));
       }catch(err){ setFactorScores(function(prev){ return Object.assign({},prev,{[symbol]:{error:true,raw:txt.slice(0,200)}}); }); }
-    }catch(e){}
+    }catch(e){ setFactorScores(function(prev){ return Object.assign({},prev,{[symbol]:{error:true,raw:'API call failed: '+e.message}}); }); }
     setScanLoading(false);
   }
 
