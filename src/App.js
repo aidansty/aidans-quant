@@ -70,16 +70,18 @@ Each holding: [UP▲/DOWN▼] HOLD/ADD/TRIM — one sentence why
 Flag positions near stops or targets with 🛑 or 🎯
 
 🎯 COMMITTEE TRADE PLANS (3-5 ideas, quality gate pre-screened)
-[⭐⭐⭐] SYMBOL | LONG▲ or SHORT▼
-Quality Gate: X/8 factors
+For EACH trade idea use EXACTLY this format, one field per line, no extra text:
+[⭐⭐⭐] SYMBOL | LONG▲ (GOING UP) or SHORT▼ (GOING DOWN)
+Quality Gate: X/8 factors pass
 Strategy: which strategy
-Insider Signal: BUYING/SELLING/NEUTRAL
-Entry: $XX.XX–$XX.XX
-Target: $XX.XX (+X% in X days)
-Stop Loss: $XX.XX (-X%)
+Insider Signal: BUYING or SELLING or NEUTRAL
+Entry: $XX.XX–$XX.XX (enter on [day e.g. Monday open])
+Target: $XX.XX (+X% gain, expected by [specific day])
+Stop Loss: $XX.XX (-X% loss, exit by [specific day] if target not hit)
 Time Window: X–X days
-Why: 2-3 sentences with specific catalyst and price levels
-Risk: one sentence
+Why: 2-3 sentences — specific catalyst, price setup, why NOW
+Position Size: $XXX
+Risk: one sentence on downside scenario
 
 📅 EVENTS THIS WEEK
 Date | Event | UP/DOWN impact on portfolio
@@ -87,18 +89,34 @@ Date | Event | UP/DOWN impact on portfolio
 ⚠️ RISK + CORRELATION WARNING
 Biggest threat today. Any correlated position pairs to watch.
 
-RULES: Web search first. Real prices only. Specific dollar amounts always. Max 2 tech picks. State position sizes.`;
+RULES: Web search first. Real prices only. Specific dollar amounts always. Max 2 tech picks. State position sizes.
+
+STOCK UNIVERSE RULES — scan the ENTIRE market for the best opportunity each day:
+- Primary focus: S&P 500 and Nasdaq stocks for core positions (most reliable data)
+- Secondary: Any U.S. listed stock with strong catalysts and data backing it up
+- Allowed: Mid-cap and small-cap stocks IF they have a clear near-term catalyst AND pass 4+ quality gate factors
+- Allowed: Sector ETFs, leveraged ETFs like BITX, SOXL, TQQQ when momentum is strong
+
+MINIMUM REQUIREMENTS (protect against garbage):
+- Price above $3/share — no penny stocks
+- Average daily volume above 500K shares — must have enough liquidity to enter and exit
+- Must have analyst coverage or SEC filings — needs data to analyze
+- Must have a specific near-term catalyst within 1-7 days OR strong momentum signal
+
+THE GOAL: Find the single best risk/reward opportunity available in the market TODAY — whether that is a mega-cap like NVDA or a lesser-known mid-cap with a strong earnings catalyst. The quality gate score and catalyst strength determine the pick, not the company size.
+
+Always diversify ideas across sectors — do not give 5 tech stocks. Mix tech, biotech, energy, financials, crypto ETFs based on what has the strongest setup that week.\`;
 
 const S = {
-  app:   { background:"#060810", minHeight:"100vh", fontFamily:"'Courier New',monospace", color:"#e0e0e0" },
-  hdr:   { background:"linear-gradient(135deg,#080f20,#0d1f3c)", borderBottom:"1px solid #00ff8820", padding:"14px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" },
-  tkr:   { background:"#04060e", borderBottom:"1px solid #080f08", padding:"6px 16px", overflowX:"auto", whiteSpace:"nowrap" },
-  tabs:  { display:"flex", borderBottom:"1px solid #0d100d", background:"#050710" },
-  tab:   (a) => ({ flex:1, padding:"9px 2px", background:"none", border:"none", borderBottom: a?"2px solid #00ff88":"2px solid transparent", color:a?"#00ff88":"#333", fontSize:10, letterSpacing:2, textTransform:"uppercase", cursor:"pointer", fontFamily:"inherit" }),
-  card:  { background:"#080c14", border:"1px solid #0d180d", borderRadius:4, padding:12, marginBottom:8 },
-  btn:   (c="#00ff88",bg="linear-gradient(135deg,#002a1a,#005533)") => ({ background:bg, border:`1px solid ${c}40`, color:c, padding:"11px", fontFamily:"inherit", fontSize:11, letterSpacing:2, textTransform:"uppercase", cursor:"pointer", borderRadius:3, width:"100%" }),
-  inp:   { background:"#04060e", border:"1px solid #0d180d", color:"#fff", padding:"8px 10px", fontFamily:"inherit", fontSize:12, borderRadius:3, width:"100%", boxSizing:"border-box" },
-  lbl:   { color:"#333", fontSize:10, letterSpacing:2, marginBottom:6, display:"block" },
+  app:   { background:"#050810", minHeight:"100vh", fontFamily:"'Courier New',monospace", color:"#e8e8e8" },
+  hdr:   { background:"linear-gradient(135deg,#0a1428,#0d1f3c)", borderBottom:"2px solid #00ff8840", padding:"14px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" },
+  tkr:   { background:"#060a10", borderBottom:"1px solid #00ff8820", padding:"7px 16px", overflowX:"auto", whiteSpace:"nowrap" },
+  tabs:  { display:"flex", borderBottom:"1px solid #1a2a1a", background:"#060a10" },
+  tab:   (a) => ({ flex:1, padding:"10px 2px", background:"none", border:"none", borderBottom: a?"2px solid #00ff88":"2px solid transparent", color:a?"#00ff88":"#556655", fontSize:10, letterSpacing:2, textTransform:"uppercase", cursor:"pointer", fontFamily:"inherit" }),
+  card:  { background:"#0a0e18", border:"1px solid #1a2a1a", borderRadius:6, padding:14, marginBottom:10 },
+  btn:   (c="#00ff88",bg="linear-gradient(135deg,#003322,#006644)") => ({ background:bg, border:`1px solid ${c}60`, color:c, padding:"12px", fontFamily:"inherit", fontSize:11, letterSpacing:2, textTransform:"uppercase", cursor:"pointer", borderRadius:4, width:"100%" }),
+  inp:   { background:"#060a10", border:"1px solid #1a2a1a", color:"#ffffff", padding:"9px 10px", fontFamily:"inherit", fontSize:12, borderRadius:4, width:"100%", boxSizing:"border-box" },
+  lbl:   { color:"#668866", fontSize:10, letterSpacing:2, marginBottom:6, display:"block" },
 };
 
 export default function QuantDashboard() {
@@ -147,7 +165,7 @@ export default function QuantDashboard() {
 
   // ─── LIVE PRICES ──────────────────────────────────────────────────────────
   async function fetchLivePrices() {
-    const syms=[...new Set([...portfolio.map(p=>p.symbol),"SPY","QQQ","AMAT","AMD","AAPL","SMH"])];
+    const syms=[...new Set([...portfolio.map(p=>p.symbol),"SPY","QQQ","NVDA","MU","AMAT","AMD","AAPL","MSFT","META","SMH","GLD","TLT","XLE"])];
     const res={};
     await Promise.all(syms.map(async sym=>{
       try{
@@ -326,28 +344,135 @@ Return ONLY this JSON (no markdown):
 
   // ─── BRIEFING FORMATTER ───────────────────────────────────────────────────
   function fmt(text){
-    return text.split("\n").map((line,i)=>{
-      if(line.match(/^[📊💼🎯⚠️📅]/)) return <div key={i} style={{color:"#00ff88",fontWeight:"bold",marginTop:22,marginBottom:8,fontSize:14,borderBottom:"1px solid #00ff8815",paddingBottom:5}}>{line}</div>;
-      if(line.includes("⭐⭐⭐")) return <div key={i} style={{color:"#00ff88",fontWeight:"bold",marginTop:14,marginBottom:4,fontSize:13,background:"#00ff8810",padding:"5px 10px",borderRadius:4,borderLeft:"3px solid #00ff88"}}>{line}</div>;
-      if((line.includes("⭐⭐"))&&(!line.includes("⭐⭐⭐"))) return <div key={i} style={{color:"#ffcc00",fontWeight:"bold",marginTop:14,marginBottom:4,fontSize:13,background:"#ffcc0010",padding:"5px 10px",borderRadius:4,borderLeft:"3px solid #ffcc00"}}>{line}</div>;
-      if((line.includes("⭐"))&&(!line.includes("⭐⭐"))) return <div key={i} style={{color:"#ff8844",fontWeight:"bold",marginTop:14,marginBottom:4,fontSize:13,background:"#ff884410",padding:"5px 10px",borderRadius:4,borderLeft:"3px solid #ff8844"}}>{line}</div>;
-      if(line.startsWith("Entry:"))        return <div key={i} style={{color:"#00ff88",fontSize:12,paddingLeft:10,marginBottom:3,fontWeight:"bold"}}>🟢 {line}</div>;
-      if(line.startsWith("Target:"))       return <div key={i} style={{color:"#00ccff",fontSize:12,paddingLeft:10,marginBottom:3,fontWeight:"bold"}}>🎯 {line}</div>;
-      if(line.startsWith("Stop Loss:")||line.startsWith("Stop:")) return <div key={i} style={{color:"#ff4444",fontSize:12,paddingLeft:10,marginBottom:3,fontWeight:"bold"}}>🛑 {line}</div>;
-      if(line.startsWith("Time Window:"))  return <div key={i} style={{color:"#ffcc00",fontSize:11,paddingLeft:10,marginBottom:3}}>⏱ {line}</div>;
-      if(line.startsWith("Strategy:"))     return <div key={i} style={{color:"#4488ff",fontSize:11,paddingLeft:10,marginBottom:3,fontStyle:"italic"}}>📐 {line}</div>;
-      if(line.startsWith("Quality Gate:")) return <div key={i} style={{color:"#aa88ff",fontSize:11,paddingLeft:10,marginBottom:3}}>🔬 {line}</div>;
-      if(line.startsWith("Insider Signal:"))return <div key={i} style={{color:"#ffaa00",fontSize:11,paddingLeft:10,marginBottom:3}}>👁 {line}</div>;
-      if(line.startsWith("Why:"))          return <div key={i} style={{color:"#ccc",fontSize:12,paddingLeft:10,marginBottom:3}}>{line}</div>;
-      if(line.startsWith("Risk:"))         return <div key={i} style={{color:"#ff6644",fontSize:11,paddingLeft:10,marginBottom:8}}>⚡ {line}</div>;
-      if(line.includes("🚨")||line.includes("🔴")||line.includes("🛑")&&line.length<80) return <div key={i} style={{color:"#ff3333",fontWeight:"bold",fontSize:12,marginBottom:4,background:"#ff000010",padding:"3px 8px",borderRadius:3}}>{line}</div>;
-      if(line.includes("**")){const p=line.split(/\*\*(.*?)\*\*/g);return <div key={i} style={{color:"#bbb",fontSize:12,marginBottom:3}}>{p.map((x,j)=>j%2===1?<strong key={j} style={{color:"#fff"}}>{x}</strong>:x)}</div>;}
-      if(line.startsWith("-")||line.startsWith("•")) return <div key={i} style={{color:"#888",paddingLeft:14,marginBottom:3,fontSize:12}}>→ {line.slice(1).trim()}</div>;
-      if(line.trim()==="") return <div key={i} style={{height:5}}/>;
-      return <div key={i} style={{color:"#bbb",fontSize:12,marginBottom:2}}>{line}</div>;
-    });
-  }
+    const lines = text.split("\n");
+    const output = [];
+    let i = 0;
+    let inTrade = false;
+    let tradeHeader = "";
+    let tradeLines = [];
 
+    const flushTrade = (key) => {
+      if(!tradeHeader) return;
+      const f = {};
+      tradeLines.forEach(l => {
+        if(l.match(/^(Ticker:|Symbol:)/i)) f.ticker = l.replace(/^(Ticker:|Symbol:)/i,"").trim();
+        if(l.match(/^Quality Gate:/i)) f.gate = l.replace(/^Quality Gate:/i,"").trim();
+        if(l.match(/^Strategy:/i)) f.strategy = l.replace(/^Strategy:/i,"").trim();
+        if(l.match(/^(Bias:|.*LONG.*|.*SHORT.*)/i) && l.length < 60) f.bias = l.replace(/^Bias:/i,"").trim();
+        if(l.match(/^Entry:/i)) f.entry = l.replace(/^Entry:/i,"").trim();
+        if(l.match(/^Target:/i)) f.target = l.replace(/^Target:/i,"").trim();
+        if(l.match(/^(Stop Loss:|Stop:)/i)) f.stop = l.replace(/^(Stop Loss:|Stop:)/i,"").trim();
+        if(l.match(/^Time Window:/i)) f.time = l.replace(/^Time Window:/i,"").trim();
+        if(l.match(/^Why:/i)) f.why = l.replace(/^Why:/i,"").trim();
+        if(l.match(/^Position Size:/i)) f.size = l.replace(/^Position Size:/i,"").trim();
+        if(l.match(/^Risk:/i)) f.risk = l.replace(/^Risk:/i,"").trim();
+        if(l.match(/^Insider Signal:/i)) f.insider = l.replace(/^Insider Signal:/i,"").trim();
+      });
+      const isHigh = tradeHeader.includes("⭐⭐⭐");
+      const isMed  = tradeHeader.includes("⭐⭐") && !isHigh;
+      const bc = isHigh ? "#00ff88" : isMed ? "#ffcc00" : "#ff8844";
+      const bg = isHigh ? "#001a0d" : isMed ? "#1a1400" : "#1a0800";
+      const isLong = tradeHeader.includes("LONG") || (f.bias||"").includes("LONG");
+      output.push(
+        <div key={key} style={{border:`2px solid ${bc}`,borderRadius:8,marginBottom:18,overflow:"hidden",boxShadow:`0 0 24px ${bc}25`}}>
+          <div style={{background:bc,padding:"9px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{color:"#000",fontWeight:"bold",fontSize:13,letterSpacing:1}}>{tradeHeader}</span>
+            <span style={{color:"#000",fontWeight:"bold",fontSize:12}}>{isLong ? "▲ LONG — GOING UP" : "▼ SHORT — GOING DOWN"}</span>
+          </div>
+          <div style={{background:bg,padding:"14px"}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+              {f.gate&&<div style={{background:"#ffffff10",borderRadius:5,padding:"7px 10px"}}>
+                <div style={{color:"#9988bb",fontSize:9,letterSpacing:2,marginBottom:2}}>QUALITY GATE</div>
+                <div style={{color:"#cc99ff",fontSize:13,fontWeight:"bold"}}>🔬 {f.gate}</div>
+              </div>}
+              {f.strategy&&<div style={{background:"#ffffff10",borderRadius:5,padding:"7px 10px"}}>
+                <div style={{color:"#8899aa",fontSize:9,letterSpacing:2,marginBottom:2}}>STRATEGY</div>
+                <div style={{color:"#88aaff",fontSize:12}}>📐 {f.strategy}</div>
+              </div>}
+              {f.insider&&<div style={{background:"#ffffff10",borderRadius:5,padding:"7px 10px"}}>
+                <div style={{color:"#aa9988",fontSize:9,letterSpacing:2,marginBottom:2}}>INSIDER SIGNAL</div>
+                <div style={{color:"#ffbb55",fontSize:12}}>👁 {f.insider}</div>
+              </div>}
+              {f.time&&<div style={{background:"#ffffff10",borderRadius:5,padding:"7px 10px"}}>
+                <div style={{color:"#aaaa88",fontSize:9,letterSpacing:2,marginBottom:2}}>TIME WINDOW</div>
+                <div style={{color:"#ffee88",fontSize:12}}>⏱ {f.time}</div>
+              </div>}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
+              <div style={{background:"#003322",border:"2px solid #00ff8850",borderRadius:6,padding:"10px",textAlign:"center"}}>
+                <div style={{color:"#00ff8899",fontSize:9,letterSpacing:2,marginBottom:4}}>ENTRY</div>
+                <div style={{fontSize:18}}>🟢</div>
+                <div style={{color:"#00ff88",fontSize:12,marginTop:4,fontWeight:"bold"}}>{f.entry||"—"}</div>
+              </div>
+              <div style={{background:"#001a33",border:"2px solid #00ccff50",borderRadius:6,padding:"10px",textAlign:"center"}}>
+                <div style={{color:"#00ccff99",fontSize:9,letterSpacing:2,marginBottom:4}}>TARGET</div>
+                <div style={{fontSize:18}}>🎯</div>
+                <div style={{color:"#00ccff",fontSize:12,marginTop:4,fontWeight:"bold"}}>{f.target||"—"}</div>
+              </div>
+              <div style={{background:"#330000",border:"2px solid #ff444450",borderRadius:6,padding:"10px",textAlign:"center"}}>
+                <div style={{color:"#ff444499",fontSize:9,letterSpacing:2,marginBottom:4}}>STOP LOSS</div>
+                <div style={{fontSize:18}}>🛑</div>
+                <div style={{color:"#ff6666",fontSize:12,marginTop:4,fontWeight:"bold"}}>{f.stop||"—"}</div>
+              </div>
+            </div>
+            {f.size&&<div style={{background:"#ffffff0a",borderRadius:5,padding:"7px 12px",marginBottom:10,display:"flex",alignItems:"center",gap:8}}>
+              <span style={{color:"#888888",fontSize:9,letterSpacing:2}}>POSITION SIZE:</span>
+              <span style={{color:"#ffffff",fontSize:14,fontWeight:"bold"}}>{f.size}</span>
+            </div>}
+            {f.why&&<div style={{background:"#ffffff06",borderRadius:5,padding:"10px 12px",marginBottom:10,borderLeft:"3px solid #ffffff25"}}>
+              <div style={{color:"#999999",fontSize:9,letterSpacing:2,marginBottom:5}}>WHY THIS TRADE</div>
+              <div style={{color:"#dddddd",fontSize:13,lineHeight:1.7}}>{f.why}</div>
+            </div>}
+            {f.risk&&<div style={{background:"#ff000008",borderRadius:5,padding:"7px 12px",borderLeft:"3px solid #ff444450"}}>
+              <span style={{color:"#ff7755",fontSize:9,letterSpacing:2}}>⚡ RISK: </span>
+              <span style={{color:"#ffaa88",fontSize:12}}>{f.risk}</span>
+            </div>}
+          </div>
+        </div>
+      );
+      tradeLines = []; tradeHeader = ""; inTrade = false;
+    };
+
+    while(i < lines.length){
+      const line = lines[i];
+      const isTradeStart = (line.includes("⭐")) && line.length < 150 &&
+        (line.includes("LONG") || line.includes("SHORT") || line.includes("|") ||
+         (i+1 < lines.length && (lines[i+1]||"").match(/Quality Gate:|Strategy:|Entry:|Ticker:/i)));
+      if(isTradeStart){
+        if(inTrade) flushTrade(`t${i}`);
+        inTrade = true; tradeHeader = line; i++; continue;
+      }
+      if(inTrade){
+        const nextIsTradeStart = (lines[i]||"").includes("⭐") && lines[i].length < 150;
+        const nextIsSectionHeader = (lines[i]||"").match(/^[📊💼🎯⚠️📅]/);
+        if(nextIsTradeStart || nextIsSectionHeader){ flushTrade(`t${i}`); if(nextIsTradeStart){ inTrade=true; tradeHeader=line; i++; continue; } }
+        else { tradeLines.push(line); i++; continue; }
+      }
+      if(line.match(/^#+\s*[📊💼🎯⚠️📅]|^[📊💼🎯⚠️📅]/)){
+        output.push(<div key={i} style={{color:"#00ff88",fontWeight:"bold",marginTop:26,marginBottom:10,fontSize:15,borderBottom:"2px solid #00ff8835",paddingBottom:7,letterSpacing:1}}>{line.replace(/^#+\s*/,"")}</div>);
+      } else if(line.includes("🚨")||line.toLowerCase().includes("circuit breaker")){
+        output.push(<div key={i} style={{color:"#ff3333",fontWeight:"bold",fontSize:13,margin:"6px 0",background:"#ff000015",padding:"7px 12px",borderRadius:5,border:"1px solid #ff333330"}}>{line}</div>);
+      } else if(line.startsWith("|") && !line.includes("---")){
+        const cells=line.split("|").filter(c=>c.trim());
+        const isHdr = i+1<lines.length && (lines[i+1]||"").includes("---");
+        output.push(<div key={i} style={{display:"grid",gridTemplateColumns:`repeat(${cells.length},1fr)`,gap:3,marginBottom:3}}>
+          {cells.map((c,j)=><div key={j} style={{padding:"5px 8px",background:isHdr?"#1a2a1a":"#0c1018",border:"1px solid #1a2a1a",borderRadius:3,color:isHdr?"#00ff88":"#cccccc",fontSize:11,fontWeight:isHdr?"bold":"normal",textAlign:"center"}}>{c.trim()}</div>)}
+        </div>);
+      } else if(line.startsWith("-")||line.startsWith("•")){
+        output.push(<div key={i} style={{color:"#cccccc",paddingLeft:16,marginBottom:5,fontSize:13}}>→ {line.slice(1).trim()}</div>);
+      } else if(line.includes("**")){
+        const p=line.split(/\*\*(.*?)\*\*/g);
+        output.push(<div key={i} style={{color:"#dddddd",fontSize:13,marginBottom:4}}>{p.map((x,j)=>j%2===1?<strong key={j} style={{color:"#ffffff",fontSize:14}}>{x}</strong>:x)}</div>);
+      } else if(line.trim()===""){
+        output.push(<div key={i} style={{height:8}}/>);
+      } else {
+        output.push(<div key={i} style={{color:"#cccccc",fontSize:13,marginBottom:4,lineHeight:1.65}}>{line}</div>);
+      }
+      i++;
+    }
+    if(inTrade) flushTrade("last");
+    return output;
+  }
   const TABS=["briefing","committee","risk","portfolio","trades","chat"];
 
   return (
@@ -358,7 +483,7 @@ Return ONLY this JSON (no markdown):
         <div>
           <div style={{fontSize:9,color:"#00ff88",letterSpacing:3}}>ASYMMETRIC AI FUND</div>
           <div style={{fontSize:18,fontWeight:"bold",color:"#fff"}}>Aidan's War Room</div>
-          <div style={{fontSize:10,color:"#333",marginTop:2}}>
+          <div style={{fontSize:10,color:"#778877",marginTop:2}}>
             Today: <span style={{color:dayChange>=0?"#00ff88":"#ff4444"}}>{dayChange>=0?"+":""}${dayChange.toFixed(2)}</span>
             {" · "}Drawdown: <span style={{color:drawdown>=-4?"#00ff88":drawdown>=-8?"#ffcc00":"#ff4444"}}>{drawdown.toFixed(1)}%</span>
           </div>
@@ -372,7 +497,7 @@ Return ONLY this JSON (no markdown):
 
       {/* RISK BANNERS */}
       {riskAlerts.map((a,i)=>(
-        <div key={i} style={{background:"#0e0808",borderBottom:`1px solid ${a.color}30`,padding:"5px 16px",fontSize:11,color:a.color}}>{a.msg}</div>
+        <div key={i} style={{background:"#180808",borderBottom:`1px solid ${a.color}60`,padding:"7px 16px",fontSize:12,color:a.color,fontWeight:"bold"}}>{a.msg}</div>
       ))}
 
       {/* LIVE TICKER */}
@@ -380,13 +505,13 @@ Return ONLY this JSON (no markdown):
         <div style={{display:"inline-flex",gap:16,alignItems:"center"}}>
           {Object.entries(livePrices).map(([sym,d])=>(
             <span key={sym} style={{display:"inline-flex",gap:4,alignItems:"center"}}>
-              <span style={{color:"#444",fontSize:10}}>{sym}</span>
-              <span style={{color:"#ccc",fontSize:11,fontWeight:"bold"}}>${d.price?.toFixed(2)}</span>
+              <span style={{color:"#778877",fontSize:10}}>{sym}</span>
+              <span style={{color:"#ffffff",fontSize:11,fontWeight:"bold"}}>${d.price?.toFixed(2)}</span>
               <span style={{color:d.change>=0?"#00ff88":"#ff4444",fontSize:10}}>{d.change>=0?"▲":"▼"}{Math.abs(d.change).toFixed(2)}%</span>
             </span>
           ))}
           <button onClick={fetchLivePrices} style={{background:"none",border:"none",color:"#00ff8825",cursor:"pointer",fontSize:13}}>⟳</button>
-          {lastUpdated&&<span style={{color:"#1a1a1a",fontSize:9}}>{lastUpdated}</span>}
+          {lastUpdated&&<span style={{color:"#556655",fontSize:9}}>{lastUpdated}</span>}
         </div>
       </div>
 
@@ -399,17 +524,17 @@ Return ONLY this JSON (no markdown):
         {activeTab==="briefing"&&(
           <div>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
-              <span style={{color:"#222",fontSize:10,letterSpacing:2}}>{new Date().toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"}).toUpperCase()}</span>
-              <span style={{color:"#333",fontSize:10}}>Cash: <span style={{color:"#00ff88"}}>${cashBalance.toFixed(2)}</span></span>
+              <span style={{color:"#669966",fontSize:10,letterSpacing:2}}>{new Date().toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"}).toUpperCase()}</span>
+              <span style={{color:"#aaaaaa",fontSize:11}}>Cash: <span style={{color:"#00ff88",fontWeight:"bold"}}>${cashBalance.toFixed(2)}</span></span>
             </div>
             <button onClick={getDailyBriefing} disabled={loading} style={S.btn()}>
               {loading?"⟳ Quality Gate · Agent Analysis · Trade Plans...":"▶ GET FULL DAILY BRIEFING"}
             </button>
             <div style={{height:12}}/>
             {briefing?(
-              <div style={{background:"#05070e",border:"1px solid #0d180d",borderRadius:4,padding:14,lineHeight:1.65}}>{fmt(briefing)}</div>
+              <div style={{background:"#070a12",border:"1px solid #1a2a1a",borderRadius:6,padding:16,lineHeight:1.65}}>{fmt(briefing)}</div>
             ):(
-              <div style={{textAlign:"center",padding:50,color:"#0f1a0f",border:"1px dashed #0a120a",borderRadius:4}}>
+              <div style={{textAlign:"center",padding:50,color:"#446644",border:"1px dashed #2a4a2a",borderRadius:4}}>
                 <div style={{fontSize:28,marginBottom:8}}>📈</div>
                 <div style={{fontSize:10,letterSpacing:2,color:"#1a2a1a"}}>HIT BRIEFING TO START YOUR DAY</div>
                 <div style={{fontSize:10,color:"#111a11",marginTop:8}}>Quality Gate · 3-Agent Committee · Trade Plans · Risk Management</div>
@@ -422,7 +547,7 @@ Return ONLY this JSON (no markdown):
         {activeTab==="committee"&&(
           <div>
             <div style={S.lbl}>3-AGENT COMMITTEE — INFORMATION ASYMMETRY</div>
-            <div style={{fontSize:11,color:"#2a3a2a",marginBottom:12,lineHeight:1.6}}>
+            <div style={{fontSize:11,color:"#889988",marginBottom:12,lineHeight:1.6}}>
               Wolf sees fundamentals only. Cohen sees price only. Dalio sees macro. They vote independently — real disagreement before consensus. You are the Portfolio Manager: Approve or Reject.
             </div>
 
@@ -452,7 +577,7 @@ Return ONLY this JSON (no markdown):
                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,marginBottom:8}}>
                         {Object.entries(sc.factors).map(([f,v])=>(
                           <div key={f} style={{display:"flex",justifyContent:"space-between",padding:"3px 8px",background:"#04060e",borderRadius:2}}>
-                            <span style={{color:"#444",fontSize:10,textTransform:"uppercase"}}>{f.replace("_"," ")}</span>
+                            <span style={{color:"#aaaaaa",fontSize:10,textTransform:"uppercase"}}>{f.replace("_"," ")}</span>
                             <div style={{display:"flex",alignItems:"center",gap:5}}>
                               <div style={{width:36,height:3,background:"#0a0a0a",borderRadius:2}}>
                                 <div style={{width:`${(v||0)*100}%`,height:"100%",background:v>0.6?"#00ff88":v>0.35?"#ffcc00":"#ff4444",borderRadius:2}}/>
@@ -464,8 +589,8 @@ Return ONLY this JSON (no markdown):
                       </div>
                     )}
                     {sc.insider_signal&&<div style={{color:"#ffaa00",fontSize:11,marginBottom:4}}>👁 Insider Signal: {sc.insider_signal}</div>}
-                    {sc.summary&&<div style={{color:"#666",fontSize:11}}>{sc.summary}</div>}
-                    <div style={{color:"#222",fontSize:9,marginTop:4}}>Scored {sc.scoredAt}</div>
+                    {sc.summary&&<div style={{color:"#aaaaaa",fontSize:11}}>{sc.summary}</div>}
+                    <div style={{color:"#778877",fontSize:9,marginTop:4}}>Scored {sc.scoredAt}</div>
                   </div>
                 );
               })()}
@@ -485,9 +610,9 @@ Return ONLY this JSON (no markdown):
                       <span style={{color:consColor,fontWeight:"bold",fontSize:15}}>{C?.stars} {C?.consensus}</span>
                     </div>
                     <div style={{display:"flex",gap:16,marginBottom:10}}>
-                      <span style={{color:"#00ff88",fontSize:12}}>✅ Buy: {C?.buys}/3</span>
-                      <span style={{color:"#ff4444",fontSize:12}}>❌ Sell: {C?.sells}/3</span>
-                      <span style={{color:"#888",fontSize:12}}>Avg conviction: {C?.avgConv}</span>
+                      <span style={{color:"#00ff88",fontSize:13,fontWeight:"bold"}}>✅ Buy: {C?.buys}/3</span>
+                      <span style={{color:"#ff6666",fontSize:13,fontWeight:"bold"}}>❌ Sell: {C?.sells}/3</span>
+                      <span style={{color:"#aaaaaa",fontSize:12}}>Avg conviction: {C?.avgConv}</span>
                     </div>
                     {C?.entry&&<div style={{color:"#00ff88",fontSize:12,marginBottom:3}}>🟢 Entry Zone: {C.entry}</div>}
                     {C?.target&&<div style={{color:"#00ccff",fontSize:12,marginBottom:3}}>🎯 Avg Target: {C.target}</div>}
@@ -501,13 +626,13 @@ Return ONLY this JSON (no markdown):
                   {Object.entries(votes).filter(([k])=>k!=="_c").map(([agent,vote])=>(
                     <div key={agent} style={{...S.card,borderLeft:`3px solid ${vote.direction==="BUY"?"#00ff88":vote.direction==="SELL"?"#ff4444":"#ffcc00"}`}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                        <span style={{color:"#aaa",fontSize:11,fontWeight:"bold"}}>{agent}</span>
+                        <span style={{color:"#cccccc",fontSize:11,fontWeight:"bold"}}>{agent}</span>
                         <span style={{color:vote.direction==="BUY"?"#00ff88":vote.direction==="SELL"?"#ff4444":"#ffcc00",fontSize:12,fontWeight:"bold"}}>
                           {vote.direction} · {((vote.conviction||0.5)*100).toFixed(0)}%
                         </span>
                       </div>
                       {vote.entry&&<div style={{color:"#00ff8880",fontSize:11,marginBottom:2}}>Entry: ${vote.entry} · Target: ${vote.target} · Stop: ${vote.stop}</div>}
-                      <div style={{color:"#666",fontSize:11,lineHeight:1.5}}>{vote.reasoning}</div>
+                      <div style={{color:"#bbbbbb",fontSize:11,lineHeight:1.5}}>{vote.reasoning}</div>
                     </div>
                   ))}
                 </div>
@@ -531,7 +656,7 @@ Return ONLY this JSON (no markdown):
                 ["CB Status",drawdown<=-8?"🔴 TRIGGERED":drawdown<=-4?"🟡 WARNING":"🟢 CLEAR",drawdown<=-8?"#ff4444":drawdown<=-4?"#ffcc00":"#00ff88"],
               ].map(([l,v,c])=>(
                 <div key={l} style={{background:"#05070e",border:"1px solid #0a120a",borderRadius:4,padding:"8px 10px"}}>
-                  <div style={{color:"#333",fontSize:9,letterSpacing:1,marginBottom:3}}>{l}</div>
+                  <div style={{color:"#889988",fontSize:9,letterSpacing:1,marginBottom:3}}>{l}</div>
                   <div style={{color:c,fontSize:13,fontWeight:"bold"}}>{v}</div>
                 </div>
               ))}
@@ -545,8 +670,8 @@ Return ONLY this JSON (no markdown):
                 {label:"Single Position Stop",limit:"8% per position",triggered:false},
               ].map(cb=>(
                 <div key={cb.label} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #08080a"}}>
-                  <span style={{color:"#555",fontSize:11}}>{cb.label}</span>
-                  <span style={{color:"#333",fontSize:11}}>Limit: {cb.limit}</span>
+                  <span style={{color:"#aaaaaa",fontSize:11}}>{cb.label}</span>
+                  <span style={{color:"#889988",fontSize:11}}>Limit: {cb.limit}</span>
                   <span style={{color:cb.triggered?"#ff4444":"#00ff88",fontSize:11,fontWeight:"bold"}}>{cb.triggered?"🔴 ACTIVE":"🟢 CLEAR"}</span>
                 </div>
               ))}
@@ -555,7 +680,7 @@ Return ONLY this JSON (no markdown):
             <div style={S.card}>
               <div style={S.lbl}>ACTIVE ALERTS ({riskAlerts.length})</div>
               {riskAlerts.length===0?(
-                <div style={{color:"#00ff8830",fontSize:12,textAlign:"center",padding:20}}>✅ All clear — no active risk alerts</div>
+                <div style={{color:"#00ff8866",fontSize:12,textAlign:"center",padding:20}}>✅ All clear — no active risk alerts</div>
               ):riskAlerts.map((a,i)=>(
                 <div key={i} style={{padding:"7px 10px",background:"#05070e",borderRadius:3,marginBottom:6,borderLeft:`3px solid ${a.color}`}}>
                   <div style={{color:a.color,fontSize:11}}>{a.msg}</div>
@@ -577,8 +702,8 @@ Return ONLY this JSON (no markdown):
                       <span style={{color:rc,fontSize:12,fontWeight:"bold"}}>{pnlPct>=0?"+":""}{pnlPct.toFixed(1)}%</span>
                     </div>
                     <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                      <span style={{color:"#333",fontSize:10}}>Weight: {weight.toFixed(1)}%</span>
-                      <span style={{color:"#333",fontSize:10}}>${p.value.toFixed(2)}</span>
+                      <span style={{color:"#aaaaaa",fontSize:10}}>Weight: {weight.toFixed(1)}%</span>
+                      <span style={{color:"#aaaaaa",fontSize:10}}>${p.value.toFixed(2)}</span>
                       <span style={{color:"#ff444460",fontSize:10}}>Stop: ${(p.avgPrice*0.92).toFixed(2)}</span>
                     </div>
                     <div style={{height:3,background:"#08080a",borderRadius:2}}>
@@ -597,7 +722,7 @@ Return ONLY this JSON (no markdown):
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:12}}>
               {[["INVESTED",`$${totalInvested.toFixed(0)}`,"#666"],["CASH",`$${cashBalance.toFixed(0)}`,"#4488ff"],["TOTAL",`$${totalValue.toFixed(0)}`,"#00ff88"]].map(([l,v,c])=>(
                 <div key={l} style={{background:"#06080f",border:"1px solid #0a120a",borderRadius:4,padding:"8px",textAlign:"center"}}>
-                  <div style={{color:"#222",fontSize:9,letterSpacing:2,marginBottom:2}}>{l}</div>
+                  <div style={{color:"#889988",fontSize:9,letterSpacing:2,marginBottom:2}}>{l}</div>
                   <div style={{color:c,fontSize:14,fontWeight:"bold"}}>{v}</div>
                 </div>
               ))}
@@ -613,20 +738,20 @@ Return ONLY this JSON (no markdown):
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
                     <div>
                       <span style={{color:"#fff",fontWeight:"bold",fontSize:14}}>{p.symbol}</span>
-                      {atStop&&<span style={{color:"#ff4444",fontSize:9,marginLeft:8}}>🛑 STOP ZONE</span>}
-                      {atTgt&&<span style={{color:"#00ccff",fontSize:9,marginLeft:8}}>🎯 TARGET ZONE</span>}
+                      {atStop&&<span style={{color:"#ff6666",fontSize:10,marginLeft:8}}>🛑 STOP ZONE</span>}
+                      {atTgt&&<span style={{color:"#00ddff",fontSize:10,marginLeft:8}}>🎯 TARGET ZONE</span>}
                     </div>
                     <span style={{color:"#ddd",fontSize:13}}>${p.value.toFixed(2)}</span>
                   </div>
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:live?4:0}}>
-                    <span style={{color:"#333",fontSize:10}}>{p.shares.toFixed(4)}sh @ ${p.avgPrice.toFixed(2)}</span>
+                    <span style={{color:"#aaaaaa",fontSize:10}}>{p.shares.toFixed(4)}sh @ ${p.avgPrice.toFixed(2)}</span>
                     <span style={{color:pnlPct>=0?"#00ff88":"#ff4444",fontSize:12,fontWeight:"bold"}}>{pnlPct>=0?"+":""}{pnlPct.toFixed(2)}% (${pnlD>=0?"+":""}${pnlD.toFixed(2)})</span>
                   </div>
                   {live&&(
                     <div style={{display:"flex",gap:10,fontSize:10}}>
-                      <span style={{color:"#222"}}>Live:<span style={{color:"#aaa"}}>${live.price?.toFixed(2)}</span></span>
-                      <span style={{color:"#222"}}>H:<span style={{color:"#555"}}>${live.high?.toFixed(2)}</span></span>
-                      <span style={{color:"#222"}}>L:<span style={{color:"#555"}}>${live.low?.toFixed(2)}</span></span>
+                      <span style={{color:"#999999"}}>Live:<span style={{color:"#ffffff"}}>${live.price?.toFixed(2)}</span></span>
+                      <span style={{color:"#999999"}}>H:<span style={{color:"#cccccc"}}>${live.high?.toFixed(2)}</span></span>
+                      <span style={{color:"#999999"}}>L:<span style={{color:"#cccccc"}}>${live.low?.toFixed(2)}</span></span>
                       <span style={{color:live.change>=0?"#00ff8850":"#ff444450"}}>{live.change>=0?"▲":"▼"}{Math.abs(live.change).toFixed(2)}%</span>
                     </div>
                   )}
@@ -656,20 +781,20 @@ Return ONLY this JSON (no markdown):
           <div>
             <div style={S.lbl}>TRADE HISTORY ({trades.length})</div>
             {trades.length===0?(
-              <div style={{textAlign:"center",padding:40,color:"#0f1a0f",border:"1px dashed #0a120a",borderRadius:4}}>
+              <div style={{textAlign:"center",padding:40,color:"#446644",border:"1px dashed #2a4a2a",borderRadius:4}}>
                 <div style={{fontSize:10,letterSpacing:2}}>NO TRADES LOGGED YET</div>
               </div>
             ):trades.map((t,i)=>(
               <div key={i} style={{...S.card,borderLeft:`3px solid ${t.action==="BUY"?"#00ff88":"#ff6644"}`}}>
                 <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
                   <span style={{color:t.action==="BUY"?"#00ff88":"#ff6644",fontWeight:"bold",fontSize:11}}>{t.action}</span>
-                  <span style={{color:"#222",fontSize:10}}>{t.date}</span>
+                  <span style={{color:"#888888",fontSize:10}}>{t.date}</span>
                 </div>
                 <div style={{display:"flex",justifyContent:"space-between"}}>
-                  <span style={{color:"#ccc",fontSize:13}}>{t.symbol} — {t.shares}sh @ ${t.price}</span>
-                  <span style={{color:"#555",fontSize:12}}>${t.total.toFixed(2)}</span>
+                  <span style={{color:"#eeeeee",fontSize:13}}>{t.symbol} — {t.shares}sh @ ${t.price}</span>
+                  <span style={{color:"#aaaaaa",fontSize:12}}>${t.total.toFixed(2)}</span>
                 </div>
-                {t.note&&<div style={{color:"#2a2a2a",fontSize:10,marginTop:3}}>{t.note}</div>}
+                {t.note&&<div style={{color:"#777777",fontSize:10,marginTop:3}}>{t.note}</div>}
               </div>
             ))}
           </div>
@@ -681,14 +806,14 @@ Return ONLY this JSON (no markdown):
             <div style={S.lbl}>ASK YOUR QUANT — live data · quality gate · 6 strategies · risk mgmt</div>
             <div style={{background:"#04060e",border:"1px solid #0a120a",borderRadius:4,padding:12,minHeight:220,maxHeight:420,overflowY:"auto",marginBottom:10}}>
               {chatHistory.length===0?(
-                <div style={{color:"#0f1a0f",fontSize:10,letterSpacing:2,textAlign:"center",marginTop:70}}>ASK ANYTHING — ENTRIES · EXITS · STRATEGY · MARKET</div>
+                <div style={{color:"#446644",fontSize:10,letterSpacing:2,textAlign:"center",marginTop:70}}>ASK ANYTHING — ENTRIES · EXITS · STRATEGY · MARKET</div>
               ):chatHistory.map((m,i)=>(
                 <div key={i} style={{marginBottom:14}}>
-                  <div style={{fontSize:9,color:m.role==="user"?"#00ff8845":"#4488ff45",letterSpacing:2,marginBottom:4}}>{m.role==="user"?"YOU":"QUANT"}</div>
-                  <div style={{color:m.role==="user"?"#bbb":"#888",fontSize:12,lineHeight:1.6}}>{typeof m.content==="string"?m.content:""}</div>
+                  <div style={{fontSize:9,color:m.role==="user"?"#00ff8899":"#4488ffaa",letterSpacing:2,marginBottom:4}}>{m.role==="user"?"YOU":"QUANT"}</div>
+                  <div style={{color:m.role==="user"?"#eeeeee":"#cccccc",fontSize:12,lineHeight:1.6}}>{typeof m.content==="string"?m.content:""}</div>
                 </div>
               ))}
-              {chatLoading&&<div style={{color:"#00ff8830",fontSize:10,letterSpacing:2}}>⟳ SEARCHING MARKET DATA...</div>}
+              {chatLoading&&<div style={{color:"#00ff8866",fontSize:10,letterSpacing:2}}>⟳ SEARCHING MARKET DATA...</div>}
             </div>
             <div style={{display:"flex",gap:8}}>
               <input placeholder="Entry on MU? Should I hold AMAT into earnings? What's SPY doing?" value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendChat()} style={{...S.inp,flex:1}}/>
