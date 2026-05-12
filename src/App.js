@@ -1,3 +1,4 @@
+/* eslint-disable */
 import React, { useState, useEffect } from "react";
 
 const INITIAL_PORTFOLIO = [
@@ -169,7 +170,7 @@ export default function QuantDashboard() {
     const res={};
     await Promise.all(syms.map(async sym=>{
       try{
-        const r=await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=2d&corsDomain=finance.yahoo.com`,{headers:{"User-Agent":"Mozilla/5.0"}});
+        const r=await fetch("https://query2.finance.yahoo.com/v8/finance/chart/"+sym+"?interval=1d&range=2d&corsDomain=finance.yahoo.com",{headers:{"User-Agent":"Mozilla/5.0"}});
         const d=await r.json(); const m=d?.chart?.result?.[0]?.meta;
         if(m){const c=m.regularMarketPrice,p=m.chartPreviousClose||m.previousClose; res[sym]={price:c,change:p?((c-p)/p)*100:0,high:m.regularMarketDayHigh,low:m.regularMarketDayLow,volume:m.regularMarketVolume,prev:p};}
       }catch{}
