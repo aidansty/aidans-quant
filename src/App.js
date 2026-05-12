@@ -367,7 +367,7 @@ export default function QuantDashboard() {
       const bg = isHigh ? "#001a0d" : isMed ? "#1a1400" : "#1a0800";
       const isLong = tradeHeader.includes("LONG") || (f.bias||"").includes("LONG");
       output.push(
-        <div key={key} style={{border:`2px solid ${bc}`,borderRadius:8,marginBottom:18,overflow:"hidden",boxShadow:`0 0 24px ${bc}25`}}>
+        <div key={key} style={{border:"2px solid "+bc,borderRadius:8,marginBottom:18,overflow:"hidden",boxShadow:"0 0 24px "+bc+"25"}}>
           <div style={{background:bc,padding:"9px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <span style={{color:"#000",fontWeight:"bold",fontSize:13,letterSpacing:1}}>{tradeHeader}</span>
             <span style={{color:"#000",fontWeight:"bold",fontSize:12}}>{isLong ? "▲ LONG — GOING UP" : "▼ SHORT — GOING DOWN"}</span>
@@ -432,13 +432,13 @@ export default function QuantDashboard() {
         (line.includes("LONG") || line.includes("SHORT") || line.includes("|") ||
          (i+1 < lines.length && (lines[i+1]||"").match(/Quality Gate:|Strategy:|Entry:|Ticker:/i)));
       if(isTradeStart){
-        if(inTrade) flushTrade(`t${i}`);
+        if(inTrade) flushTrade("t"+i);
         inTrade = true; tradeHeader = line; i++; continue;
       }
       if(inTrade){
         const nextIsTradeStart = (lines[i]||"").includes("⭐") && lines[i].length < 150;
         const nextIsSectionHeader = (lines[i]||"").match(/^[📊💼🎯⚠️📅]/);
-        if(nextIsTradeStart || nextIsSectionHeader){ flushTrade(`t${i}`); if(nextIsTradeStart){ inTrade=true; tradeHeader=line; i++; continue; } }
+        if(nextIsTradeStart || nextIsSectionHeader){ flushTrade("t"+i); if(nextIsTradeStart){ inTrade=true; tradeHeader=line; i++; continue; } }
         else { tradeLines.push(line); i++; continue; }
       }
       if(line.match(/^#+\s*[📊💼🎯⚠️📅]|^[📊💼🎯⚠️📅]/)){
@@ -448,7 +448,7 @@ export default function QuantDashboard() {
       } else if(line.startsWith("|") && !line.includes("---")){
         const cells=line.split("|").filter(c=>c.trim());
         const isHdr = i+1<lines.length && (lines[i+1]||"").includes("---");
-        output.push(<div key={i} style={{display:"grid",gridTemplateColumns:`repeat(${cells.length},1fr)`,gap:3,marginBottom:3}}>
+        output.push(<div key={i} style={{display:"grid",gridTemplateColumns:"repeat("+cells.length+",1fr)",gap:3,marginBottom:3}}>
           {cells.map((c,j)=><div key={j} style={{padding:"5px 8px",background:isHdr?"#1a2a1a":"#0c1018",border:"1px solid #1a2a1a",borderRadius:3,color:isHdr?"#00ff88":"#cccccc",fontSize:11,fontWeight:isHdr?"bold":"normal",textAlign:"center"}}>{c.trim()}</div>)}
         </div>);
       } else if(line.startsWith("-")||line.startsWith("•")){
@@ -490,7 +490,7 @@ export default function QuantDashboard() {
 
       {/* RISK BANNERS */}
       {riskAlerts.map((a,i)=>(
-        <div key={i} style={{background:"#180808",borderBottom:`1px solid ${a.color}60`,padding:"7px 16px",fontSize:12,color:a.color,fontWeight:"bold"}}>{a.msg}</div>
+        <div key={i} style={{background:"#180808",borderBottom:"1px solid "+a.color+"60",padding:"7px 16px",fontSize:12,color:a.color,fontWeight:"bold"}}>{a.msg}</div>
       ))}
 
       {/* LIVE TICKER */}
@@ -573,7 +573,7 @@ export default function QuantDashboard() {
                             <span style={{color:"#aaaaaa",fontSize:10,textTransform:"uppercase"}}>{f.replace("_"," ")}</span>
                             <div style={{display:"flex",alignItems:"center",gap:5}}>
                               <div style={{width:36,height:3,background:"#0a0a0a",borderRadius:2}}>
-                                <div style={{width:`${(v||0)*100}%`,height:"100%",background:v>0.6?"#00ff88":v>0.35?"#ffcc00":"#ff4444",borderRadius:2}}/>
+                                <div style={{width:((v||0)*100)+"%",height:"100%",background:v>0.6?"#00ff88":v>0.35?"#ffcc00":"#ff4444",borderRadius:2}}/>
                               </div>
                               <span style={{color:v>0.6?"#00ff88":v>0.35?"#ffcc00":"#ff6644",fontSize:10}}>{(v||0).toFixed(2)}</span>
                             </div>
@@ -597,7 +597,7 @@ export default function QuantDashboard() {
               return(
                 <div>
                   {/* Verdict Card */}
-                  <div style={{...S.card,borderColor:`${consColor}40`,borderWidth:1}}>
+                  <div style={{...S.card,borderColor:consColor+"40",borderWidth:1}}>
                     <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
                       <span style={{color:"#fff",fontWeight:"bold",fontSize:13}}>COMMITTEE VERDICT</span>
                       <span style={{color:consColor,fontWeight:"bold",fontSize:15}}>{C?.stars} {C?.consensus}</span>
@@ -617,7 +617,7 @@ export default function QuantDashboard() {
                   </div>
                   {/* Individual Agent Cards */}
                   {Object.entries(votes).filter(([k])=>k!=="_c").map(([agent,vote])=>(
-                    <div key={agent} style={{...S.card,borderLeft:`3px solid ${vote.direction==="BUY"?"#00ff88":vote.direction==="SELL"?"#ff4444":"#ffcc00"}`}}>
+                    <div key={agent} style={{...S.card,borderLeft:"3px solid "+(vote.direction==="BUY"?"#00ff88":vote.direction==="SELL"?"#ff4444":"#ffcc00")}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
                         <span style={{color:"#cccccc",fontSize:11,fontWeight:"bold"}}>{agent}</span>
                         <span style={{color:vote.direction==="BUY"?"#00ff88":vote.direction==="SELL"?"#ff4444":"#ffcc00",fontSize:12,fontWeight:"bold"}}>
@@ -675,7 +675,7 @@ export default function QuantDashboard() {
               {riskAlerts.length===0?(
                 <div style={{color:"#00ff8866",fontSize:12,textAlign:"center",padding:20}}>✅ All clear — no active risk alerts</div>
               ):riskAlerts.map((a,i)=>(
-                <div key={i} style={{padding:"7px 10px",background:"#05070e",borderRadius:3,marginBottom:6,borderLeft:`3px solid ${a.color}`}}>
+                <div key={i} style={{padding:"7px 10px",background:"#05070e",borderRadius:3,marginBottom:6,borderLeft:"3px solid "+a.color}}>
                   <div style={{color:a.color,fontSize:11}}>{a.msg}</div>
                 </div>
               ))}
@@ -689,7 +689,7 @@ export default function QuantDashboard() {
                 const weight=(p.value/(totalValue-cashBalance))*100;
                 const rc=pnlPct<=-8?"#ff4444":pnlPct<=-4?"#ff8844":pnlPct>=15?"#00ccff":"#00ff88";
                 return(
-                  <div key={p.symbol} style={{marginBottom:8,padding:"8px 10px",background:"#04060e",borderRadius:3,borderLeft:`3px solid ${rc}`}}>
+                  <div key={p.symbol} style={{marginBottom:8,padding:"8px 10px",background:"#04060e",borderRadius:3,borderLeft:"3px solid "+rc}}>
                     <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
                       <span style={{color:"#ddd",fontWeight:"bold",fontSize:12}}>{p.symbol}</span>
                       <span style={{color:rc,fontSize:12,fontWeight:"bold"}}>{pnlPct>=0?"+":""}{pnlPct.toFixed(1)}%</span>
@@ -700,7 +700,7 @@ export default function QuantDashboard() {
                       <span style={{color:"#ff444460",fontSize:10}}>Stop: ${(p.avgPrice*0.92).toFixed(2)}</span>
                     </div>
                     <div style={{height:3,background:"#08080a",borderRadius:2}}>
-                      <div style={{width:`${Math.min(weight,100)}%`,height:"100%",background:rc,borderRadius:2,opacity:0.7}}/>
+                      <div style={{width:Math.min(weight,100)+"%",height:"100%",background:rc,borderRadius:2,opacity:0.7}}/>
                     </div>
                   </div>
                 );
@@ -727,7 +727,7 @@ export default function QuantDashboard() {
               const atStop=pnlPct<=-8,atTgt=pnlPct>=15;
               const bc=atStop?"#ff4444":atTgt?"#00ccff":pnlPct>=0?"#00ff88":"#ff6644";
               return(
-                <div key={i} style={{...S.card,borderLeft:`3px solid ${bc}`}}>
+                <div key={i} style={{...S.card,borderLeft:"3px solid "+bc}}>
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
                     <div>
                       <span style={{color:"#fff",fontWeight:"bold",fontSize:14}}>{p.symbol}</span>
@@ -778,7 +778,7 @@ export default function QuantDashboard() {
                 <div style={{fontSize:10,letterSpacing:2}}>NO TRADES LOGGED YET</div>
               </div>
             ):trades.map((t,i)=>(
-              <div key={i} style={{...S.card,borderLeft:`3px solid ${t.action==="BUY"?"#00ff88":"#ff6644"}`}}>
+              <div key={i} style={{...S.card,borderLeft:"3px solid "+(t.action==="BUY"?"#00ff88":"#ff6644")}}>
                 <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
                   <span style={{color:t.action==="BUY"?"#00ff88":"#ff6644",fontWeight:"bold",fontSize:11}}>{t.action}</span>
                   <span style={{color:"#888888",fontSize:10}}>{t.date}</span>
