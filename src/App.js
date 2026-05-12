@@ -279,7 +279,7 @@ export default function QuantDashboard() {
         if(/^Target:/i.test(l)) f.target = l.replace(/^Target:/i,"").trim();
         if(/^(Stop Loss:|Stop:)/i.test(l)) f.stop = l.replace(/^(Stop Loss:|Stop:)/i,"").trim();
         if(/^Time Window:/i.test(l)) f.time = l.replace(/^Time Window:/i,"").trim();
-        if(/^Why:/i.test(l)) f.why = l.replace(/^Why:/i,"").trim();
+        if(/^Why:|^Why this trade:|^Reasoning:|^Thesis:/i.test(l)) f.why = l.replace(/^Why this trade:|^Why:|^Reasoning:|^Thesis:/i,"").trim();
         if(/^Position Size:/i.test(l)) f.size = l.replace(/^Position Size:/i,"").trim();
         if(/^Risk:/i.test(l)) f.risk = l.replace(/^Risk:/i,"").trim();
         if(/^Insider Signal:/i.test(l)) f.insider = l.replace(/^Insider Signal:/i,"").trim();
