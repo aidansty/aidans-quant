@@ -194,7 +194,20 @@ export default function QuantDashboard() {
         target:targets.length?"$"+(targets.reduce(function(a,b){ return a+b; },0)/targets.length).toFixed(2):null,
         stop:stops.length?"$"+Math.min.apply(null,stops).toFixed(2):null};
       setAgentVotes(function(prev){ return Object.assign({},prev,{[symbol]:votes}); });
-    }catch(e){ console.error(e); setAgentVotes(function(prev){ return Object.assign({},prev,{[symbol]:{_c:{symbol:symbol,consensus:'ERROR',buys:0,sells:0,holds:0,avgConv:'0',stars:'',entry:null,target:null,stop:null},'Wolf (Fundamentals)':{direction:'ERROR',conviction:0.5,reasoning:'API error: '+e.message},'Cohen (Price Action)':{direction:'ERROR',conviction:0.5,reasoning:'Check your API key in Vercel'},'Dalio (Macro)':{direction:'ERROR',conviction:0.5,reasoning:'Check console for details'}}}}); }}
+    }catch(e){
+      console.error(e);
+      var errMsg = e.message||"Unknown error";
+      setAgentVotes(function(prev){
+        var errResult = {};
+        errResult[symbol] = {
+          "_c":{symbol:symbol,consensus:"ERROR",buys:0,sells:0,holds:0,avgConv:"0",stars:"",entry:null,target:null,stop:null},
+          "Wolf (Fundamentals)":{direction:"ERROR",conviction:0.5,reasoning:"API error: "+errMsg},
+          "Cohen (Price Action)":{direction:"ERROR",conviction:0.5,reasoning:"Check API key in Vercel settings"},
+          "Dalio (Macro)":{direction:"ERROR",conviction:0.5,reasoning:"Check browser console for details"}
+        };
+        return Object.assign({},prev,errResult);
+      });
+    }
     setAgentLoading(false);
   }
 
