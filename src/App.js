@@ -114,7 +114,7 @@ const S = {
   tabs:  { display:"flex", borderBottom:"1px solid #1a2a1a", background:"#060a10" },
   tab:   (a) => ({ flex:1, padding:"10px 2px", background:"none", border:"none", borderBottom: a?"2px solid #00ff88":"2px solid transparent", color:a?"#00ff88":"#556655", fontSize:10, letterSpacing:2, textTransform:"uppercase", cursor:"pointer", fontFamily:"inherit" }),
   card:  { background:"#0a0e18", border:"1px solid #1a2a1a", borderRadius:6, padding:14, marginBottom:10 },
-  btn:   (c="#00ff88",bg="linear-gradient(135deg,#003322,#006644)") => ({ background:bg, border:`1px solid ${c}60`, color:c, padding:"12px", fontFamily:"inherit", fontSize:11, letterSpacing:2, textTransform:"uppercase", cursor:"pointer", borderRadius:4, width:"100%" }),
+  btn:   (c="#00ff88",bg="linear-gradient(135deg,#003322,#006644)") => ({ background:bg, border:"1px solid "+c+"60", color:c, padding:"12px", fontFamily:"inherit", fontSize:11, letterSpacing:2, textTransform:"uppercase", cursor:"pointer", borderRadius:4, width:"100%" }),
   inp:   { background:"#060a10", border:"1px solid #1a2a1a", color:"#ffffff", padding:"9px 10px", fontFamily:"inherit", fontSize:12, borderRadius:4, width:"100%", boxSizing:"border-box" },
   lbl:   { color:"#668866", fontSize:10, letterSpacing:2, marginBottom:6, display:"block" },
 };
