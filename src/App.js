@@ -181,9 +181,19 @@ export default function QuantDashboard() {
 
   // ─── CLAUDE API ───────────────────────────────────────────────────────────
   async function callClaude(system, messages, search=true){
+    const key = process.env.REACT_APP_ANTHROPIC_API_KEY;
     const body={model:"claude-sonnet-4-20250514",max_tokens:2000,system,messages};
     if(search) body.tools=[{type:"web_search_20250305",name:"web_search"}];
-    const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const r=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "x-api-key": key,
+        "anthropic-version":"2023-06-01",
+        "anthropic-dangerous-direct-browser-access":"true"
+      },
+      body:JSON.stringify(body)
+    });
     const d=await r.json();
     if(d.error) throw new Error(d.error);
     return d.content.filter(b=>b.type==="text").map(b=>b.text).join("\n");
