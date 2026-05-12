@@ -154,8 +154,8 @@ export default function QuantDashboard() {
     portfolio.forEach(p=>{
       const l=livePrices[p.symbol]; if(!l) return;
       const pct=((l.price-p.avgPrice)/p.avgPrice)*100;
-      if(pct<=-8) alerts.push({msg:`🛑 ${p.symbol}: Down ${pct.toFixed(1)}% from avg — at stop loss level, consider cutting`,color:"#ff6644"});
-      if(pct>=15)  alerts.push({msg:`🎯 ${p.symbol}: Up ${pct.toFixed(1)}% — at profit target zone, consider trimming`,color:"#00ccff"});
+      if(pct<=-8) alerts.push({msg:"🛑 "+p.symbol+": Down "+pct.toFixed(1)+"% from avg — at stop loss level, consider cutting",color:"#ff6644"});
+      if(pct>=15)  alerts.push({msg:"🎯 "+p.symbol+": Up "+pct.toFixed(1)+"% — at profit target zone, consider trimming",color:"#00ccff"});
     });
     const techVal = portfolio.filter(p=>["NVDA","MU","AMAT","AMD","AAPL","MSFT","SMH"].includes(p.symbol)).reduce((s,p)=>s+p.value,0);
     const invested = portfolio.reduce((s,p)=>s+p.value,0);
@@ -268,7 +268,7 @@ Search market news first. Run quality gate. Deliver full briefing with trade pla
       const targets=Object.values(votes).filter(v=>v.target).map(v=>v.target);
       const stops=Object.values(votes).filter(v=>v.stop).map(v=>v.stop);
       votes["_c"]={symbol,consensus,buys,sells,holds:3-buys-sells,avgConv:avgConv.toFixed(2),stars,
-        entry:entries.length?`$${Math.min(...entries).toFixed(2)}–$${Math.max(...entries).toFixed(2)}`:null,
+        entry:entries.length?"$"+Math.min(...entries).toFixed(2)+"-$"+Math.max(...entries).toFixed(2):null,
         target:targets.length?`$${(targets.reduce((a,b)=>a+b,0)/targets.length).toFixed(2)}`:null,
         stop:stops.length?`$${Math.min(...stops).toFixed(2)}`:null};
       setAgentVotes(prev=>({...prev,[symbol]:votes}));
@@ -283,7 +283,7 @@ Search market news first. Run quality gate. Deliver full briefing with trade pla
     try{
       const live=livePrices[symbol]||{};
       const txt=await callClaude(
-        `You are the 8-Factor Quality Gate scoring engine. Score ${symbol} on each factor 0.0–1.0. Search for current data.
+        `You are the 8-Factor Quality Gate scoring engine. Score ${symbol} on each factor 0.0-1.0. Search for current data.
 Return ONLY this JSON (no markdown):
 {"symbol":"${symbol}","factors":{"momentum":0.0,"value":0.0,"quality":0.0,"growth":0.0,"revision":0.0,"short_interest":0.0,"insider":0.0,"institutional":0.0},"composite":0.0,"passes_gate":true,"insider_signal":"NEUTRAL","summary":"one sentence"}`,
         [{role:"user",content:`Score ${symbol}. Current price: $${live.price?.toFixed(2)}. Search for fundamentals, insider filings, and analyst data.`}]
