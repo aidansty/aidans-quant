@@ -224,17 +224,11 @@ export default function QuantDashboard() {
   async function getDailyBriefing(){
     setLoading(true); setBriefing("");
     try{
-      const portStr=portfolio.map(p=>{const l=livePrices[p.symbol];const pct=l?(((l.price-p.avgPrice)/p.avgPrice)*100).toFixed(1):"?";return `${p.symbol}: ${p.shares.toFixed(4)}sh @ $${p.avgPrice.toFixed(2)} avg | Live:$${l?.price?.toFixed(2)||"?"} | P&L:${pct}%`;}).join("\n");
-      const liveStr=Object.entries(livePrices).map(([s,d])=>`${s}:$${d.price?.toFixed(2)}(${d.change>=0?"+":""}${d.change?.toFixed(2)}%)`).join(", ");
+      const portStr=portfolio.map(p=>{const l=livePrices[p.symbol];const pct=l?(((l.price-p.avgPrice)/p.avgPrice)*100).toFixed(1):"?";const lp=l&&l.price?l.price.toFixed(2):"?";return p.symbol+": "+p.shares.toFixed(4)+"sh @ $"+p.avgPrice.toFixed(2)+" avg | Live:$"+lp+" | P&L:"+pct+"%";}).join("\n");
+      const liveStr=Object.entries(livePrices).map(([s,d])=>s+":$"+(d.price?d.price.toFixed(2):"?")+"("+(d.change>=0?"+":"")+(d.change?d.change.toFixed(2):"0")+"%)").join(", ");
       const riskStr=riskAlerts.length?riskAlerts.map(a=>a.msg).join("; "):"No active alerts";
-      const trHist=trades.slice(-5).map(t=>`${t.date} ${t.action} ${t.symbol} @$${t.price}`).join("; ");
-      const txt=await callClaude(BRIEFING_PROMPT(),[{role:"user",content:`Daily check-in ${new Date().toLocaleDateString()}.
-LIVE PRICES: ${liveStr}
-PORTFOLIO:\n${portStr}
-CASH: $${cashBalance.toFixed(2)}
-RISK ALERTS: ${riskStr}
-RECENT TRADES: ${trHist||"none"}
-Search market news first. Run quality gate. Deliver full briefing with trade plans.`}]);
+      const trHist=trades.slice(-5).map(t=>t.date+" "+t.action+" "+t.symbol+" @$"+t.price).join("; ");
+      const txt=await callClaude(BRIEFING_PROMPT(),[{role:"user",content:"Daily check-in "+new Date().toLocaleDateString()+".\nLIVE PRICES: "+liveStr+"\nPORTFOLIO:\n"+portStr+"\nCASH: $"+cashBalance.toFixed(2)+"\nRISK ALERTS: "+riskStr+"\nRECENT TRADES: "+(trHist||"none")+"\nSearch market news first. Run quality gate. Deliver full briefing with trade plans."}]);
       setBriefing(txt);
     }catch(e){setBriefing("Error — check connection and try again.");}
     setLoading(false);
@@ -245,13 +239,13 @@ Search market news first. Run quality gate. Deliver full briefing with trade pla
     if(!symbol) return;
     setAgentLoading(true);
     const live=livePrices[symbol]||{};
-    const priceStr=`Price:$${live.price?.toFixed(2)}, Today:${live.change?.toFixed(2)}%, High:$${live.high?.toFixed(2)}, Low:$${live.low?.toFixed(2)}, Volume:${(live.volume||0).toLocaleString()}`;
+    const priceStr="Price:$"+(live.price?live.price.toFixed(2):"?")+", Today:"+(live.change?live.change.toFixed(2):"0")+"%, High:$"+(live.high?live.high.toFixed(2):"?")+", Low:$"+(live.low?live.low.toFixed(2):"?")+", Volume:"+(live.volume||0).toLocaleString();
     const votes={};
     try{
       const [wTxt,cTxt,dTxt]=await Promise.all([
-        callClaude(WOLF_PROMPT(symbol),[{role:"user",content:`Search and analyze ${symbol} fundamentals only. Provide JSON vote.`}]),
-        callClaude(COHEN_PROMPT(symbol,priceStr),[{role:"user",content:`Analyze this price data only for ${symbol}: ${priceStr}. Provide JSON vote.`}],false),
-        callClaude(DALIO_PROMPT(symbol,priceStr),[{role:"user",content:`Search macro context then analyze ${symbol}. Provide JSON vote.`}]),
+        callClaude(WOLF_PROMPT(symbol),[{role:"user",content:"Search and analyze "+symbol+" fundamentals only. Provide JSON vote."}]),
+        callClaude(COHEN_PROMPT(symbol,priceStr),[{role:"user",content:"Analyze this price data only for "+symbol+": "+priceStr+". Provide JSON vote."}],false),
+        callClaude(DALIO_PROMPT(symbol,priceStr),[{role:"user",content:"Search macro context then analyze "+symbol+". Provide JSON vote."}]),
       ]);
       for(const [name,txt] of [["🐺 Wolf (Fundamentals)",wTxt],["📈 Cohen (Price Action)",cTxt],["🌐 Dalio (Macro)",dTxt]]){
         try{
@@ -270,8 +264,8 @@ Search market news first. Run quality gate. Deliver full briefing with trade pla
       const stops=Object.values(votes).filter(v=>v.stop).map(v=>v.stop);
       votes["_c"]={symbol,consensus,buys,sells,holds:3-buys-sells,avgConv:avgConv.toFixed(2),stars,
         entry:entries.length?"$"+Math.min(...entries).toFixed(2)+"-$"+Math.max(...entries).toFixed(2):null,
-        target:targets.length?`$${(targets.reduce((a,b)=>a+b,0)/targets.length).toFixed(2)}`:null,
-        stop:stops.length?`$${Math.min(...stops).toFixed(2)}`:null};
+        target:targets.length?"$"+(targets.reduce((a,b)=>a+b,0)/targets.length).toFixed(2):null,
+        stop:stops.length?"$"+Math.min(...stops).toFixed(2):null};
       setAgentVotes(prev=>({...prev,[symbol]:votes}));
     }catch(e){console.error(e);}
     setAgentLoading(false);
@@ -284,10 +278,8 @@ Search market news first. Run quality gate. Deliver full briefing with trade pla
     try{
       const live=livePrices[symbol]||{};
       const txt=await callClaude(
-        `You are the 8-Factor Quality Gate scoring engine. Score ${symbol} on each factor 0.0-1.0. Search for current data.
-Return ONLY this JSON (no markdown):
-{"symbol":"${symbol}","factors":{"momentum":0.0,"value":0.0,"quality":0.0,"growth":0.0,"revision":0.0,"short_interest":0.0,"insider":0.0,"institutional":0.0},"composite":0.0,"passes_gate":true,"insider_signal":"NEUTRAL","summary":"one sentence"}`,
-        [{role:"user",content:`Score ${symbol}. Current price: $${live.price?.toFixed(2)}. Search for fundamentals, insider filings, and analyst data.`}]
+        "You are the 8-Factor Quality Gate scoring engine. Score "+symbol+" on each factor 0.0-1.0. Search for current data.\nReturn ONLY this JSON (no markdown):\n{\"symbol\":\""+symbol+"\",\"factors\":{\"momentum\":0.0,\"value\":0.0,\"quality\":0.0,\"growth\":0.0,\"revision\":0.0,\"short_interest\":0.0,\"insider\":0.0,\"institutional\":0.0},\"composite\":0.0,\"passes_gate\":true,\"insider_signal\":\"NEUTRAL\",\"summary\":\"one sentence\"}",
+        [{role:"user",content:"Score "+symbol+". Current price: $"+(live.price?live.price.toFixed(2):"unknown")+". Search for fundamentals, insider filings, and analyst data."}]
       );
       try{
         const clean=txt.replace(/```json|```/g,"").trim();
@@ -328,8 +320,8 @@ Return ONLY this JSON (no markdown):
     const uMsg={role:"user",content:chatInput};
     const newH=[...chatHistory,uMsg]; setChatHistory(newH); setChatInput("");
     try{
-      const portStr=portfolio.map(p=>`${p.symbol}:$${livePrices[p.symbol]?.price?.toFixed(2)||"?"}`).join(", ");
-      const txt=await callClaude(BRIEFING_PROMPT()+`\nPortfolio:${portStr}. Cash:$${cashBalance.toFixed(2)}. Use quality gate + 6-strategy framework.`,newH.slice(-10));
+      const portStr=portfolio.map(p=>p.symbol+":$"+(livePrices[p.symbol]&&livePrices[p.symbol].price?livePrices[p.symbol].price.toFixed(2):"?")).join(", ");
+      const txt=await callClaude(BRIEFING_PROMPT()+"\nPortfolio:"+portStr+". Cash:$"+cashBalance.toFixed(2)+". Use quality gate + 6-strategy framework.",newH.slice(-10));
       const aMsg={role:"assistant",content:txt};
       const fH=[...newH,aMsg]; setChatHistory(fH); save(null,null,null,fH);
     }catch{setChatHistory([...newH,{role:"assistant",content:"Error. Please retry."}]);}
@@ -649,11 +641,11 @@ Return ONLY this JSON (no markdown):
 
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:12}}>
               {[
-                ["Total Value",`$${totalValue.toFixed(2)}`,"#00ff88"],
-                ["Cash Buffer",`$${cashBalance.toFixed(2)} (${((cashBalance/totalValue)*100).toFixed(0)}%)`,"#4488ff"],
-                ["Open P&L",`${totalPnL>=0?"+":""}$${totalPnL.toFixed(2)}`,totalPnL>=0?"#00ff88":"#ff4444"],
-                ["Today",`${dayChange>=0?"+":""}$${dayChange.toFixed(2)}`,dayChange>=0?"#00ff88":"#ff4444"],
-                ["Drawdown",`${drawdown.toFixed(2)}%`,drawdown>=-4?"#00ff88":drawdown>=-8?"#ffcc00":"#ff4444"],
+                ["Total Value","$"+totalValue.toFixed(2),"#00ff88"],
+                ["Cash Buffer","$"+cashBalance.toFixed(2)+" ("+((cashBalance/totalValue)*100).toFixed(0)+"%)","#4488ff"],
+                ["Open P&L",(totalPnL>=0?"+":"")+"$"+totalPnL.toFixed(2),totalPnL>=0?"#00ff88":"#ff4444"],
+                ["Today",(dayChange>=0?"+":"")+"$"+dayChange.toFixed(2),dayChange>=0?"#00ff88":"#ff4444"],
+                ["Drawdown",drawdown.toFixed(2)+"%",drawdown>=-4?"#00ff88":drawdown>=-8?"#ffcc00":"#ff4444"],
                 ["CB Status",drawdown<=-8?"🔴 TRIGGERED":drawdown<=-4?"🟡 WARNING":"🟢 CLEAR",drawdown<=-8?"#ff4444":drawdown<=-4?"#ffcc00":"#00ff88"],
               ].map(([l,v,c])=>(
                 <div key={l} style={{background:"#05070e",border:"1px solid #0a120a",borderRadius:4,padding:"8px 10px"}}>
@@ -721,7 +713,7 @@ Return ONLY this JSON (no markdown):
         {activeTab==="portfolio"&&(
           <div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:12}}>
-              {[["INVESTED",`$${totalInvested.toFixed(0)}`,"#666"],["CASH",`$${cashBalance.toFixed(0)}`,"#4488ff"],["TOTAL",`$${totalValue.toFixed(0)}`,"#00ff88"]].map(([l,v,c])=>(
+              {[["INVESTED","$"+totalInvested.toFixed(0),"#666"],["CASH","$"+cashBalance.toFixed(0),"#4488ff"],["TOTAL","$"+totalValue.toFixed(0),"#00ff88"]].map(([l,v,c])=>(
                 <div key={l} style={{background:"#06080f",border:"1px solid #0a120a",borderRadius:4,padding:"8px",textAlign:"center"}}>
                   <div style={{color:"#889988",fontSize:9,letterSpacing:2,marginBottom:2}}>{l}</div>
                   <div style={{color:c,fontSize:14,fontWeight:"bold"}}>{v}</div>
