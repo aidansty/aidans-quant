@@ -149,8 +149,8 @@ export default function QuantDashboard() {
     const dayChange = portfolio.reduce((s,p)=>{ const l=livePrices[p.symbol]; return s+(l?(l.change/100)*p.value:0); },0);
     const dayPct = totalVal>0?(dayChange/totalVal)*100:0;
     const drawdown = ((totalVal-PEAK_VALUE)/PEAK_VALUE)*100;
-    if(dayPct<=-2.5) alerts.push({msg:`🚨 CIRCUIT BREAKER: Down ${dayPct.toFixed(2)}% today — preserve cash, no new trades`,color:"#ff2222"});
-    if(drawdown<=-8)  alerts.push({msg:`🔴 DRAWDOWN: ${drawdown.toFixed(2)}% from peak — risk management active`,color:"#ff4444"});
+    if(dayPct<=-2.5) alerts.push({msg:"🚨 CIRCUIT BREAKER: Down "+dayPct.toFixed(2)+"% today — preserve cash, no new trades",color:"#ff2222"});
+    if(drawdown<=-8)  alerts.push({msg:"🔴 DRAWDOWN: "+drawdown.toFixed(2)+"% from peak — risk management active",color:"#ff4444"});
     portfolio.forEach(p=>{
       const l=livePrices[p.symbol]; if(!l) return;
       const pct=((l.price-p.avgPrice)/p.avgPrice)*100;
@@ -159,7 +159,7 @@ export default function QuantDashboard() {
     });
     const techVal = portfolio.filter(p=>["NVDA","MU","AMAT","AMD","AAPL","MSFT","SMH"].includes(p.symbol)).reduce((s,p)=>s+p.value,0);
     const invested = portfolio.reduce((s,p)=>s+p.value,0);
-    if(invested>0&&(techVal/invested)>0.60) alerts.push({msg:`⚡ CORRELATION RISK: ${((techVal/invested)*100).toFixed(0)}% in tech — highly correlated, reduce concentration`,color:"#ffcc00"});
+    if(invested>0&&(techVal/invested)>0.60) alerts.push({msg:"⚡ CORRELATION RISK: "+((techVal/invested)*100).toFixed(0)+"% in tech — highly correlated, reduce concentration",color:"#ffcc00"});
     setRiskAlerts(alerts);
   }
 
