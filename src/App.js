@@ -755,6 +755,25 @@ export default function QuantDashboard() {
               <input placeholder="Note / strategy" value={tradeForm.note} onChange={function(e){ setTradeForm(Object.assign({},tradeForm,{note:e.target.value})); }} style={Object.assign({},S.inp,{marginBottom:8})}/>
               <button onClick={logTrade} style={S.btn()}>CONFIRM TRADE</button>
             </div>
+            <div style={Object.assign({},S.card,{marginTop:8,border:"1px solid #1a2a3a"})}>
+              <div style={S.lbl}>SET CASH BALANCE</div>
+              <div style={{display:"flex",gap:8}}>
+                <input
+                  placeholder="Enter exact cash amount e.g. 500"
+                  type="number"
+                  id="cashInput"
+                  style={Object.assign({},S.inp,{flex:1})}
+                />
+                <button onClick={function(){
+                  var val=parseFloat(document.getElementById("cashInput").value);
+                  if(!isNaN(val)&&val>=0){
+                    setCashBalance(val);
+                    try{localStorage.setItem("ca3",String(val));}catch(e){}
+                    document.getElementById("cashInput").value="";
+                  }
+                }} style={Object.assign({},S.btn("#4488ff","linear-gradient(135deg,#060e24,#000e44)"),{width:"auto",padding:"0 16px"})}>SET</button>
+              </div>
+            </div>
           </div>
         )}
 
