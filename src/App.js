@@ -127,15 +127,33 @@ export default function QuantDashboard() {
     setRiskAlerts(alerts);
   }
 
+  async function fetchPrice(sym) {
+    var urls = [
+      "https://query1.finance.yahoo.com/v8/finance/chart/"+sym+"?interval=1d&range=2d",
+      "https://query2.finance.yahoo.com/v8/finance/chart/"+sym+"?interval=1d&range=2d",
+      "https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/"+sym+"?interval=1d&range=2d",
+    ];
+    for(var i=0;i<urls.length;i++){
+      try{
+        var r=await fetch(urls[i],{headers:{"Accept":"application/json"}});
+        if(!r.ok) continue;
+        var d=await r.json();
+        var m=d&&d.chart&&d.chart.result&&d.chart.result[0]&&d.chart.result[0].meta;
+        if(m&&m.regularMarketPrice){
+          var c=m.regularMarketPrice,p=m.chartPreviousClose||m.previousClose||c;
+          return {price:c,change:p?((c-p)/p)*100:0,high:m.regularMarketDayHigh||c,low:m.regularMarketDayLow||c,volume:m.regularMarketVolume||0,prev:p};
+        }
+      }catch(e){}
+    }
+    return null;
+  }
+
   async function fetchLivePrices() {
     var syms=[...new Set([...portfolio.map(function(p){ return p.symbol; }),"SPY","QQQ","NVDA","MU","AMAT","AMD","AAPL","MSFT","META","SMH","GLD","TLT","XLE"])];
     var res={};
     await Promise.all(syms.map(async function(sym){
-      try{
-        var r=await fetch("https://query2.finance.yahoo.com/v8/finance/chart/"+sym+"?interval=1d&range=2d&corsDomain=finance.yahoo.com",{headers:{"User-Agent":"Mozilla/5.0"}});
-        var d=await r.json(); var m=d&&d.chart&&d.chart.result&&d.chart.result[0]&&d.chart.result[0].meta;
-        if(m){var c=m.regularMarketPrice,p=m.chartPreviousClose||m.previousClose; res[sym]={price:c,change:p?((c-p)/p)*100:0,high:m.regularMarketDayHigh,low:m.regularMarketDayLow,volume:m.regularMarketVolume,prev:p};}
-      }catch(e){}
+      var data=await fetchPrice(sym);
+      if(data) res[sym]=data;
     }));
     if(Object.keys(res).length>0){
       setLivePrices(res); setLastUpdated(new Date().toLocaleTimeString());
