@@ -127,38 +127,16 @@ export default function QuantDashboard() {
     setRiskAlerts(alerts);
   }
 
-  async function fetchPrice(sym) {
-    var urls = [
-      "https://query1.finance.yahoo.com/v8/finance/chart/"+sym+"?interval=1d&range=2d",
-      "https://query2.finance.yahoo.com/v8/finance/chart/"+sym+"?interval=1d&range=2d",
-      "https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/"+sym+"?interval=1d&range=2d",
-    ];
-    for(var i=0;i<urls.length;i++){
-      try{
-        var r=await fetch(urls[i],{headers:{"Accept":"application/json"}});
-        if(!r.ok) continue;
-        var d=await r.json();
-        var m=d&&d.chart&&d.chart.result&&d.chart.result[0]&&d.chart.result[0].meta;
-        if(m&&m.regularMarketPrice){
-          var c=m.regularMarketPrice,p=m.chartPreviousClose||m.previousClose||c;
-          return {price:c,change:p?((c-p)/p)*100:0,high:m.regularMarketDayHigh||c,low:m.regularMarketDayLow||c,volume:m.regularMarketVolume||0,prev:p};
-        }
-      }catch(e){}
-    }
-    return null;
-  }
-
   async function fetchLivePrices() {
     var syms=[...new Set([...portfolio.map(function(p){ return p.symbol; }),"SPY","QQQ","NVDA","MU","AMAT","AMD","AAPL","MSFT","META","SMH","GLD","TLT","XLE"])];
-    var res={};
-    await Promise.all(syms.map(async function(sym){
-      var data=await fetchPrice(sym);
-      if(data) res[sym]=data;
-    }));
-    if(Object.keys(res).length>0){
-      setLivePrices(res); setLastUpdated(new Date().toLocaleTimeString());
-      setPortfolio(function(prev){ return prev.map(function(p){ var l=res[p.symbol]; return l?Object.assign({},p,{value:l.price*p.shares,livePrice:l.price}):p; }); });
-    }
+    try{
+      var r=await fetch("/api/prices?symbols="+syms.join(","));
+      var res=await r.json();
+      if(res&&Object.keys(res).length>0){
+        setLivePrices(res); setLastUpdated(new Date().toLocaleTimeString());
+        setPortfolio(function(prev){ return prev.map(function(p){ var l=res[p.symbol]; return l?Object.assign({},p,{value:l.price*p.shares,livePrice:l.price}):p; }); });
+      }
+    }catch(e){ console.error("Price fetch failed:",e); }
   }
 
   function loadData(){
