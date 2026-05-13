@@ -189,11 +189,7 @@ export default function QuantDashboard() {
         return s+":$"+(d.price?d.price.toFixed(2):"?")+"("+(d.change>=0?"+":"")+(d.change?d.change.toFixed(2):"0")+"%)";
       }).join(", ");
       var riskStr=riskAlerts.length?riskAlerts.map(function(a){ return a.msg; }).join("; "):"No active alerts";
-      var txt=await callClaude(BRIEFING_PROMPT(),[{role:"user",content:"Daily briefing: "+new Date().toLocaleDateString()+".
-LIVE PRICES: "+liveStr+"
-CASH AVAILABLE: $"+cashBalance.toFixed(2)+"
-RISK ALERTS: "+riskStr+"
-Search for todays best trade opportunities. Run quality gate on candidates. Deliver briefing with trade plans only - NO portfolio review section."}]);
+      var msg="Daily briefing: "+new Date().toLocaleDateString()+". LIVE PRICES: "+liveStr+". CASH: $"+cashBalance.toFixed(2)+". RISK: "+riskStr+". Find best trade opportunities today. Run quality gate. Give trade plans only - NO portfolio review."; var txt=await callClaude(BRIEFING_PROMPT(),[{role:"user",content:msg}]);
       setBriefing(txt);
     }catch(e){ setBriefing("Error - check connection and try again."); }
     setLoading(false);
