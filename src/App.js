@@ -164,7 +164,7 @@ export default function QuantDashboard() {
   async function callClaude(system, messages, search){
     if(search===undefined) search=true;
     var key = process.env.REACT_APP_ANTHROPIC_API_KEY;
-    var body={model:"claude-opus-4-5",max_tokens:2000,system:system,messages:messages};
+    var body={model:"claude-sonnet-4-5",max_tokens:2000,system:system,messages:messages};
     if(search) body.tools=[{type:"web_search_20250305",name:"web_search"}];
     var r=await fetch("https://api.anthropic.com/v1/messages",{
       method:"POST",
