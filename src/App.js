@@ -15,11 +15,15 @@ const WOLF_PROMPT = function(sym) {
 };
 
 const COHEN_PROMPT = function(sym, price) {
-  return "You are Agent Cohen - a pure price action trader. You see PRICE DATA ONLY. You do NOT know what this company does.\nPrice data for "+sym+": "+price+"\nAnalyze ONLY price action: trend, support/resistance, volume, momentum.\nRespond in pure JSON only:\n{\"direction\":\"BUY\",\"conviction\":0.7,\"entry\":750,\"target\":800,\"stop\":720,\"reasoning\":\"Price above 50-day MA on rising volume\",\"horizon_days\":3}";
+  return "You are Agent Cohen - an elite technical analyst and trader. You see PRICE DATA ONLY. You do NOT know what the company does or its name.\nCurrent price data for the ticker: "+price+"\n\nSearch for the following technical data for "+sym+":\n- RSI (14-day) — is it overbought (>70), oversold (<30), or neutral?\n- MACD — is the MACD line above or below the signal line? Is there a recent crossover?\n- 20-day and 50-day moving averages — is price above or below each?\n- Volume trend — is recent volume higher or lower than the 20-day average?\n- Key support and resistance levels — what are the nearest levels above and below current price?\n- Bollinger Bands — is price near upper band (overbought) or lower band (oversold)?\n- Recent price pattern — any flags, breakouts, consolidations, or reversals?\n\nBased ONLY on these technical indicators, give your vote. Your entry should be the ideal technical entry point. Your target should be the next key resistance level. Your stop should be just below the nearest support level.\nRespond in pure JSON only:\n{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":800,\"stop\":720,\"reasoning\":\"RSI at 45 neutral, MACD bullish crossover, price above 50MA, volume surging 40% above average - strong technical breakout setup\",\"horizon_days\":3,\"rsi\":45,\"macd\":\"bullish crossover\",\"ma_position\":\"above 20MA and 50MA\",\"key_support\":720,\"key_resistance\":800}";
 };
 
 const DALIO_PROMPT = function(sym, price) {
-  return "You are Agent Dalio - a macro-first analyst. You see price data AND macro context.\nSymbol: "+sym+". Price: "+price+"\nSearch for macro environment: Fed policy, inflation, sector rotation, risk sentiment.\nRespond in pure JSON only:\n{\"direction\":\"BUY\",\"conviction\":0.75,\"entry\":750,\"target\":820,\"stop\":710,\"reasoning\":\"Rate pause favors tech\",\"horizon_days\":4}";
+  return "You are Agent Dalio - an institutional flow and sector rotation specialist. You track where big money is moving in real time.\nCurrent price data for "+sym+": "+price+"\n\nSearch for the following RIGHT NOW:\n1. SECTOR ROTATION: Which sectors are institutions buying and selling this week? Is money flowing INTO or OUT OF the sector that "+sym+" belongs to? Check ETF flows, sector performance relative to SPY.\n2. OPTIONS FLOW: Search for unusual options activity on "+sym+" in the last 48 hours. Are there abnormally large call or put purchases? What strike prices and expiration dates? This shows where smart money is betting.\n3. INSTITUTIONAL POSITIONING: Are hedge funds and institutions net buyers or sellers of "+sym+" recently? Any large block trades?\n4. RELATIVE STRENGTH: How is "+sym+" performing vs its sector peers and vs SPY this week?\n\nBased on sector rotation and options flow signals, give your vote. If institutions are rotating INTO this sector AND there is unusual call buying on the stock, that is a very strong BUY signal. If institutions are rotating OUT and there is unusual put buying, that is a strong SELL signal.\nRespond in pure JSON only:\n{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":820,\"stop\":710,\"reasoning\":\"Institutions rotating into energy sector this week, unusual call buying detected at $160 strike expiring Friday\",\"horizon_days\":3,\"sector_flow\":\"INFLOW\",\"options_signal\":\"BULLISH - unusual call volume 3x average\",\"relative_strength\":\"outperforming SPY by 2.3% this week\"}";
+};
+
+const ACKMAN_PROMPT = function(sym) {
+  return "You are Agent Ackman - an activist investor like Bill Ackman. You see FUNDAMENTALS and INSIDER TRANSACTION DATA only.\nSearch for "+sym+" recent SEC Form 4 insider filings, insider buying/selling activity, CEO/CFO/Director transactions in the last 90 days.\nAlso check fundamentals: is this a high quality business with durable competitive advantages?\nKey signals you look for:\n- CEO/CFO buying own stock = very bullish\n- Multiple insiders buying same period = extremely bullish\n- Mass insider selling = bearish warning\n- No insider activity = neutral\nBased on insider activity AND fundamental quality, give your vote.\nRespond in pure JSON only:\n{"direction":"BUY","conviction":0.85,"entry":750,"target":900,"stop":690,"reasoning":"CEO bought $2M of own stock last week while fundamentals remain strong","horizon_days":7,"insider_signal":"BUYING","insider_detail":"CEO purchased 5000 shares at $145 on May 8"}";
 };
 
 const BRIEFING_PROMPT = function() {
@@ -170,29 +174,44 @@ export default function QuantDashboard() {
         callClaude(WOLF_PROMPT(symbol),[{role:"user",content:"Search and analyze "+symbol+" fundamentals only. Provide JSON vote."}]),
         callClaude(COHEN_PROMPT(symbol,priceStr),[{role:"user",content:"Analyze price data only for "+symbol+": "+priceStr+". Provide JSON vote."}],false),
         callClaude(DALIO_PROMPT(symbol,priceStr),[{role:"user",content:"Search macro context then analyze "+symbol+". Provide JSON vote."}]),
+        callClaude(ACKMAN_PROMPT(symbol),[{role:"user",content:"Search SEC Form 4 insider filings and fundamentals for "+symbol+". Provide JSON vote with insider_signal and insider_detail fields."}]),
       ]);
-      var names=["Wolf (Fundamentals)","Cohen (Price Action)","Dalio (Macro)"];
+      var names=["Wolf (Fundamentals)","Cohen (Price Action)","Dalio (Sector + Options Flow)","Ackman (Insider + Fundamentals)"];
       for(var i=0;i<3;i++){
         try{
           var txt=results[i];
           var clean=txt.split("\u0060\u0060\u0060json").join("").split("\u0060\u0060\u0060").join("").trim();
           var s=clean.indexOf("{"),e=clean.lastIndexOf("}");
-          votes[names[i]]=JSON.parse(clean.substring(s,e+1));
+          var parsed=JSON.parse(clean.substring(s,e+1));
+          // Build enhanced reasoning for Cohen with technical indicators
+          if(names[i]==="Cohen (Price Action)"&&parsed.rsi){
+            parsed.technicals="RSI: "+parsed.rsi+" | MACD: "+(parsed.macd||"n/a")+" | MA: "+(parsed.ma_position||"n/a")+" | Support: $"+(parsed.key_support||"n/a")+" | Resistance: $"+(parsed.key_resistance||"n/a");
+          }
+          // Build enhanced display for Dalio with sector flow and options
+          if(names[i]==="Dalio (Sector + Options Flow)"&&parsed.sector_flow){
+            parsed.flowdata="Sector: "+(parsed.sector_flow||"n/a")+" | Options: "+(parsed.options_signal||"n/a")+" | vs SPY: "+(parsed.relative_strength||"n/a");
+          }
+          votes[names[i]]=parsed;
         }catch(err){ votes[names[i]]={direction:"HOLD",conviction:0.5,reasoning:results[i].slice(0,150)}; }
       }
       var dirs=Object.values(votes).map(function(v){ return v.direction; });
       var buys=dirs.filter(function(d){ return d==="BUY"; }).length;
       var sells=dirs.filter(function(d){ return d==="SELL"; }).length;
       var consensus=buys>=2?"BUY":sells>=2?"SELL":"HOLD";
-      var avgConv=Object.values(votes).reduce(function(s,v){ return s+(v.conviction||0.5); },0)/3;
+      var avgConv=Object.values(votes).reduce(function(s,v){ return s+(v.conviction||0.5); },0)/4;
       var stars=avgConv>0.75?"High Conviction":avgConv>0.5?"Medium Conviction":"Speculative";
       var entries=Object.values(votes).filter(function(v){ return v.entry; }).map(function(v){ return v.entry; });
       var targets=Object.values(votes).filter(function(v){ return v.target; }).map(function(v){ return v.target; });
       var stops=Object.values(votes).filter(function(v){ return v.stop; }).map(function(v){ return v.stop; });
-      votes["_c"]={symbol:symbol,consensus:consensus,buys:buys,sells:sells,holds:3-buys-sells,avgConv:avgConv.toFixed(2),stars:stars,
+      var ackmanVote = votes["Ackman (Insider + Fundamentals)"]||{};
+      var insiderSignal = ackmanVote.insider_signal||"NEUTRAL";
+      var insiderDetail = ackmanVote.insider_detail||"No recent insider activity found";
+      votes["_c"]={symbol:symbol,consensus:consensus,buys:buys,sells:sells,holds:4-buys-sells,avgConv:avgConv.toFixed(2),stars:stars,
         entry:entries.length?"$"+Math.min.apply(null,entries).toFixed(2)+"-$"+Math.max.apply(null,entries).toFixed(2):null,
         target:targets.length?"$"+(targets.reduce(function(a,b){ return a+b; },0)/targets.length).toFixed(2):null,
-        stop:stops.length?"$"+Math.min.apply(null,stops).toFixed(2):null};
+        stop:stops.length?"$"+Math.min.apply(null,stops).toFixed(2):null,
+        insiderSignal:insiderSignal,
+        insiderDetail:insiderDetail};
       setAgentVotes(function(prev){ return Object.assign({},prev,{[symbol]:votes}); });
     }catch(e){
       console.error(e);
@@ -492,7 +511,7 @@ export default function QuantDashboard() {
         {activeTab==="committee"&&(
           <div>
             <div style={S.lbl}>3-AGENT COMMITTEE — INFORMATION ASYMMETRY</div>
-            <div style={{fontSize:11,color:"#889988",marginBottom:12,lineHeight:1.6}}>Wolf sees fundamentals only. Cohen sees price only. Dalio sees macro. They vote independently.</div>
+            <div style={{fontSize:11,color:"#889988",marginBottom:12,lineHeight:1.6}}>Wolf sees fundamentals only. Cohen sees technicals only. Dalio sees sector rotation + options flow. Ackman sees insider filings + fundamentals. They vote independently — 4-agent consensus.</div>
             <div style={S.card}>
               <div style={S.lbl}>SCAN SYMBOL</div>
               <div style={{display:"flex",gap:6,marginBottom:8}}>
@@ -542,9 +561,14 @@ export default function QuantDashboard() {
                     React.createElement("span",{style:{color:consColor,fontWeight:"bold",fontSize:15}},C&&C.stars+" "+C&&C.consensus)
                   ),
                   React.createElement("div",{style:{display:"flex",gap:16,marginBottom:10}},
-                    React.createElement("span",{style:{color:"#00ff88",fontSize:13,fontWeight:"bold"}},"Buy: "+(C&&C.buys)+"/3"),
-                    React.createElement("span",{style:{color:"#ff6666",fontSize:13,fontWeight:"bold"}},"Sell: "+(C&&C.sells)+"/3"),
+                    React.createElement("span",{style:{color:"#00ff88",fontSize:13,fontWeight:"bold"}},"Buy: "+(C&&C.buys)+"/4"),
+                    React.createElement("span",{style:{color:"#ff6666",fontSize:13,fontWeight:"bold"}},"Sell: "+(C&&C.sells)+"/4"),
                     React.createElement("span",{style:{color:"#aaaaaa",fontSize:12}},"Conviction: "+(C&&C.avgConv))
+                  ),
+                  C&&C.insiderSignal&&React.createElement("div",{style:{background:"#1a1200",borderRadius:4,padding:"6px 10px",marginBottom:8,border:"1px solid #ffaa0030"}},
+                    React.createElement("div",{style:{color:"#ffaa00",fontSize:9,letterSpacing:2,marginBottom:2}},"ACKMAN INSIDER SIGNAL"),
+                    React.createElement("div",{style:{color:C.insiderSignal==="BUYING"?"#00ff88":C.insiderSignal==="SELLING"?"#ff4444":"#aaaaaa",fontSize:12,fontWeight:"bold"}},"👁 "+C.insiderSignal),
+                    C.insiderDetail&&React.createElement("div",{style:{color:"#888888",fontSize:11,marginTop:2}},C.insiderDetail)
                   ),
                   C&&C.entry&&React.createElement("div",{style:{color:"#00ff88",fontSize:12,marginBottom:3}},"Entry: "+C.entry),
                   C&&C.target&&React.createElement("div",{style:{color:"#00ccff",fontSize:12,marginBottom:3}},"Target: "+C.target),
@@ -561,7 +585,9 @@ export default function QuantDashboard() {
                       React.createElement("span",{style:{color:"#cccccc",fontSize:11,fontWeight:"bold"}},agent),
                       React.createElement("span",{style:{color:vote.direction==="BUY"?"#00ff88":vote.direction==="SELL"?"#ff4444":"#ffcc00",fontSize:12,fontWeight:"bold"}},vote.direction+" · "+((vote.conviction||0.5)*100).toFixed(0)+"%")
                     ),
-                    React.createElement("div",{style:{color:"#bbbbbb",fontSize:11,lineHeight:1.5}},vote.reasoning)
+                    React.createElement("div",{style:{color:"#bbbbbb",fontSize:11,lineHeight:1.5}},vote.reasoning),
+                    vote.technicals&&React.createElement("div",{style:{marginTop:6,padding:"5px 8px",background:"#060a10",borderRadius:3,color:"#4488ff",fontSize:10,lineHeight:1.6}},vote.technicals),
+                    vote.flowdata&&React.createElement("div",{style:{marginTop:6,padding:"5px 8px",background:"#060a10",borderRadius:3,color:"#aa88ff",fontSize:10,lineHeight:1.6}},vote.flowdata)
                   );
                 })
               );
