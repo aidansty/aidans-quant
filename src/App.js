@@ -15,7 +15,22 @@ const WOLF_PROMPT = function(sym) {
 };
 
 const COHEN_PROMPT = function(sym, price) {
-  return "You are Agent Cohen - an elite technical analyst and trader. You see PRICE DATA ONLY. You do NOT know what the company does or its name.\nCurrent price data for the ticker: "+price+"\n\nSearch for the following technical data for "+sym+":\n- RSI (14-day) — is it overbought (>70), oversold (<30), or neutral?\n- MACD — is the MACD line above or below the signal line? Is there a recent crossover?\n- 20-day and 50-day moving averages — is price above or below each?\n- Volume trend — is recent volume higher or lower than the 20-day average?\n- Key support and resistance levels — what are the nearest levels above and below current price?\n- Bollinger Bands — is price near upper band (overbought) or lower band (oversold)?\n- Recent price pattern — any flags, breakouts, consolidations, or reversals?\n\nBased ONLY on these technical indicators, give your vote. Your entry should be the ideal technical entry point. Your target should be the next key resistance level. Your stop should be just below the nearest support level.\nRespond in pure JSON only:\n{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":800,\"stop\":720,\"reasoning\":\"RSI at 45 neutral, MACD bullish crossover, price above 50MA, volume surging 40% above average - strong technical breakout setup\",\"horizon_days\":3,\"rsi\":45,\"macd\":\"bullish crossover\",\"ma_position\":\"above 20MA and 50MA\",\"key_support\":720,\"key_resistance\":800}";
+  return "You are Agent Cohen - an elite technical analyst. You see PRICE DATA ONLY. You do NOT know what the company does.\n"
+    + "Current price data: "+price+"\n\n"
+    + "Search for the following technical data for "+sym+":\n"
+    + "- RSI (14-day): overbought above 70, oversold below 30\n"
+    + "- MACD: is the line above or below signal? Recent crossover?\n"
+    + "- 20-day and 50-day moving averages: is price above or below each?\n"
+    + "- Volume trend: higher or lower than 20-day average?\n"
+    + "- Key support and resistance levels\n"
+    + "- Bollinger Bands: near upper or lower band?\n"
+    + "- Recent price pattern: breakout, consolidation, reversal?\n\n"
+    + "Respond in pure JSON only (no markdown):\n"
+    + "{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":800,\"stop\":720,"
+    + "\"reasoning\":\"RSI neutral, MACD bullish crossover, price above 50MA, volume surging\","
+    + "\"horizon_days\":3,\"rsi\":45,\"macd\":\"bullish crossover\","
+    + "\"ma_position\":\"above 20MA and 50MA\","
+    + "\"key_support\":720,\"key_resistance\":800}";
 };
 
 const DALIO_PROMPT = function(sym, price) {
@@ -36,7 +51,19 @@ const DALIO_PROMPT = function(sym, price) {
 };
 
 const ACKMAN_PROMPT = function(sym) {
-  return "You are Agent Ackman - an activist investor like Bill Ackman. You see FUNDAMENTALS and INSIDER TRANSACTION DATA only.\nSearch for "+sym+" recent SEC Form 4 insider filings, insider buying/selling activity, CEO/CFO/Director transactions in the last 90 days.\nAlso check fundamentals: is this a high quality business with durable competitive advantages?\nKey signals you look for:\n- CEO/CFO buying own stock = very bullish\n- Multiple insiders buying same period = extremely bullish\n- Mass insider selling = bearish warning\n- No insider activity = neutral\nBased on insider activity AND fundamental quality, give your vote.\nRespond in pure JSON only:\n{"direction":"BUY","conviction":0.85,"entry":750,"target":900,"stop":690,"reasoning":"CEO bought $2M of own stock last week while fundamentals remain strong","horizon_days":7,"insider_signal":"BUYING","insider_detail":"CEO purchased 5000 shares at $145 on May 8"}";
+  return "You are Agent Ackman - an activist investor like Bill Ackman. You see FUNDAMENTALS and INSIDER TRANSACTION DATA only.\n"
+    + "Search for "+sym+" recent SEC Form 4 insider filings, insider buying/selling activity, CEO/CFO/Director transactions in the last 90 days.\n"
+    + "Also check fundamentals: is this a high quality business with durable competitive advantages?\n"
+    + "Key signals:\n"
+    + "- CEO/CFO buying own stock = very bullish\n"
+    + "- Multiple insiders buying same period = extremely bullish\n"
+    + "- Mass insider selling = bearish warning\n"
+    + "- No insider activity = neutral\n"
+    + "Respond in pure JSON only (no markdown):\n"
+    + "{\"direction\":\"BUY\",\"conviction\":0.85,\"entry\":750,\"target\":900,\"stop\":690,"
+    + "\"reasoning\":\"CEO bought stock recently while fundamentals remain strong\","
+    + "\"horizon_days\":7,\"insider_signal\":\"BUYING\","
+    + "\"insider_detail\":\"CEO purchased shares at market price recently\"}";
 };
 
 const BRIEFING_PROMPT = function() {
