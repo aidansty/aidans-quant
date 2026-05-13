@@ -143,7 +143,7 @@ export default function QuantDashboard() {
     try{
       var p=localStorage.getItem("pf3"); if(p) setPortfolio(JSON.parse(p));
       var t=localStorage.getItem("tr3"); if(t) setTrades(JSON.parse(t));
-      var c=localStorage.getItem("ca3"); if(c) setCashBalance(parseFloat(c));
+      setCashBalance(500); var c=localStorage.getItem("ca3"); if(c) setCashBalance(parseFloat(c));
       var ch=localStorage.getItem("ch3"); if(ch) setChatHistory(JSON.parse(ch));
       var fs=localStorage.getItem("fs3"); if(fs) setFactorScores(JSON.parse(fs));
     }catch(e){}
