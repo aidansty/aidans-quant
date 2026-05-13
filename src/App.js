@@ -143,7 +143,7 @@ export default function QuantDashboard() {
     try{
       var p=localStorage.getItem("pf3"); if(p) setPortfolio(JSON.parse(p));
       var t=localStorage.getItem("tr3"); if(t) setTrades(JSON.parse(t));
-      setCashBalance(500); var c=localStorage.getItem("ca3"); if(c) setCashBalance(parseFloat(c));
+      var c=localStorage.getItem("ca3"); if(c) setCashBalance(parseFloat(c));
       var ch=localStorage.getItem("ch3"); if(ch) setChatHistory(JSON.parse(ch));
       var fs=localStorage.getItem("fs3"); if(fs) setFactorScores(JSON.parse(fs));
     }catch(e){}
@@ -151,11 +151,14 @@ export default function QuantDashboard() {
 
   function save(np,nt,nc,nch){
     try{
-      if(np!==null) localStorage.setItem("pf3",JSON.stringify(np!=null?np:portfolio));
-      if(nt!==null) localStorage.setItem("tr3",JSON.stringify(nt!=null?nt:trades));
-      if(nc!==null) localStorage.setItem("ca3",String(nc!=null?nc:cashBalance));
+      var pfToSave = np!==null ? (np!=null?np:portfolio) : portfolio;
+      var trToSave = nt!==null ? (nt!=null?nt:trades) : trades;
+      var caToSave = nc!==null ? (nc!=null?nc:cashBalance) : cashBalance;
+      localStorage.setItem("pf3",JSON.stringify(pfToSave));
+      localStorage.setItem("tr3",JSON.stringify(trToSave));
+      localStorage.setItem("ca3",String(caToSave));
       if(nch!==null) localStorage.setItem("ch3",JSON.stringify(nch!=null?nch:chatHistory));
-    }catch(e){}
+    }catch(e){ console.error("Save failed:",e); }
   }
 
   async function callClaude(system, messages, search){
