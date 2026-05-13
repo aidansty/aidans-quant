@@ -19,7 +19,20 @@ const COHEN_PROMPT = function(sym, price) {
 };
 
 const DALIO_PROMPT = function(sym, price) {
-  return "You are Agent Dalio - an institutional flow and sector rotation specialist. You track where big money is moving in real time.\nCurrent price data for "+sym+": "+price+"\n\nSearch for the following RIGHT NOW:\n1. SECTOR ROTATION: Which sectors are institutions buying and selling this week? Is money flowing INTO or OUT OF the sector that "+sym+" belongs to? Check ETF flows, sector performance relative to SPY.\n2. OPTIONS FLOW: Search for unusual options activity on "+sym+" in the last 48 hours. Are there abnormally large call or put purchases? What strike prices and expiration dates? This shows where smart money is betting.\n3. INSTITUTIONAL POSITIONING: Are hedge funds and institutions net buyers or sellers of "+sym+" recently? Any large block trades?\n4. RELATIVE STRENGTH: How is "+sym+" performing vs its sector peers and vs SPY this week?\n\nBased on sector rotation and options flow signals, give your vote. If institutions are rotating INTO this sector AND there is unusual call buying on the stock, that is a very strong BUY signal. If institutions are rotating OUT and there is unusual put buying, that is a strong SELL signal.\nRespond in pure JSON only:\n{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":820,\"stop\":710,\"reasoning\":\"Institutions rotating into energy sector this week, unusual call buying detected at $160 strike expiring Friday\",\"horizon_days\":3,\"sector_flow\":\"INFLOW\",\"options_signal\":\"BULLISH - unusual call volume 3x average\",\"relative_strength\":\"outperforming SPY by 2.3% this week\"}";
+  return "You are Agent Dalio - an institutional flow and sector rotation specialist. You track where big money is moving in real time.\n"
+    + "Current price data for "+sym+": "+price+"\n\n"
+    + "Search for the following RIGHT NOW:\n"
+    + "1. SECTOR ROTATION: Which sectors are institutions buying and selling this week? Is money flowing INTO or OUT OF the sector that "+sym+" belongs to?\n"
+    + "2. OPTIONS FLOW: Search for unusual options activity on "+sym+" in the last 48 hours. Are there abnormally large call or put purchases?\n"
+    + "3. INSTITUTIONAL POSITIONING: Are hedge funds net buyers or sellers of "+sym+" recently?\n"
+    + "4. RELATIVE STRENGTH: How is "+sym+" performing vs its sector peers and vs SPY this week?\n\n"
+    + "Based on sector rotation and options flow signals, give your vote.\n"
+    + "Respond in pure JSON only (no markdown):\n"
+    + "{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":820,\"stop\":710,"
+    + "\"reasoning\":\"Institutions rotating into sector, unusual call buying detected\","
+    + "\"horizon_days\":3,\"sector_flow\":\"INFLOW\","
+    + "\"options_signal\":\"BULLISH - unusual call volume 3x average\","
+    + "\"relative_strength\":\"outperforming SPY by 2.3 percent\"}";
 };
 
 const ACKMAN_PROMPT = function(sym) {
