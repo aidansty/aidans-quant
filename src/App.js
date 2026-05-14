@@ -391,9 +391,12 @@ export default function QuantDashboard() {
     var uMsg={role:"user",content:chatInput};
     var newH=[...chatHistory,uMsg]; setChatHistory(newH); setChatInput("");
     try{
-      var portStr=portfolio.map(function(p){ return p.symbol+":$"+(livePrices[p.symbol]?livePrices[p.symbol].price.toFixed(2):"?"); }).join(", ");
+      var stockVal=portfolio.reduce(function(s,p){ return s+p.value; },0);
+      var optVal=optionsPositions.reduce(function(s,o){ return s+(o.contracts*o.premium*100); },0);
+      var totalVal=stockVal+optVal+cashBalance;
+      var portStr=portfolio.map(function(p){ return p.symbol+": $"+(livePrices[p.symbol]?livePrices[p.symbol].price.toFixed(2):"?")+" ("+p.shares.toFixed(4)+"sh, value $"+p.value.toFixed(2)+")"; }).join(" | ");
       var optStr=optionsPositions.length?optionsPositions.map(function(o){ return o.symbol+" "+o.optionType+" $"+o.strike+" exp:"+o.expiry; }).join(", "):"none";
-      var sys="You are an expert quant trader and options specialist. Answer questions about trading, markets, options, and strategy. Portfolio: "+portStr+". Options: "+optStr+". Cash: $"+cashBalance.toFixed(2)+". Always include options play recommendations where relevant. Search for current market data.";
+      var sys="You are an expert quant trader and options specialist for Aidan War Room. CRITICAL ACCOUNT FACTS use these exact numbers always: TOTAL PORTFOLIO VALUE: $"+totalVal.toFixed(2)+". Stock value: $"+stockVal.toFixed(2)+". Cash available: $"+cashBalance.toFixed(2)+". Options value: $"+optVal.toFixed(2)+". Positions: "+portStr+". Open options: "+optStr+". POSITION SIZING RULES: Max $300-500 per options contract (1 contract). Max 15 percent of $"+totalVal.toFixed(2)+" per trade which equals $"+(totalVal*0.15).toFixed(0)+". Never suggest position sizes larger than cash available $"+cashBalance.toFixed(2)+". This is a small retail account always size recommendations to this exact account size. Always include options play recommendations where relevant. Search for current market data."
       var txt=await callClaude(sys,newH.slice(-10));
       var fH=[...newH,{role:"assistant",content:txt}]; setChatHistory(fH); save(null,null,null,fH,null);
     }catch(e){ setChatHistory([...newH,{role:"assistant",content:"Error. Please retry."}]); }
