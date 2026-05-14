@@ -110,7 +110,8 @@ export default function QuantDashboard() {
   const [scanLoading,     setScanLoading]     = useState(false);
   const [riskAlerts,      setRiskAlerts]      = useState([]);
   const [portfolioView,   setPortfolioView]   = useState("stocks");
-
+  const [editingTrade,    setEditingTrade]    = useState(null);
+  const [editForm,        setEditForm]        = useState({});
   useEffect(function(){ loadData(); fetchLivePrices(); var iv=setInterval(fetchLivePrices,60000); return function(){ clearInterval(iv); }; }, []);
   useEffect(function(){ if(Object.keys(livePrices).length>0) runRiskEngine(); }, [livePrices]);
 
@@ -395,6 +396,55 @@ export default function QuantDashboard() {
     setOptionsPositions(newOptions);
     setTrades(newTrades);
     save(null,newTrades,null,null,newOptions);
+  }
+
+  function deleteTrade(idx){
+    var t = trades[idx];
+    if(!t) return;
+    var newTrades = trades.filter(function(_,i){ return i!==idx; });
+    var newPF = [...portfolio];
+    var newCash = cashBalance;
+    var newOptions = [...optionsPositions];
+    if(t.type==="OPTION"){
+      if(t.action==="BUY"){ newCash+=t.total; newOptions=newOptions.filter(function(o){ return !(o.symbol===t.symbol&&o.strike===t.strike&&o.expiry===t.expiry); }); }
+    } else {
+      if(t.action==="BUY"){
+        newCash+=t.total;
+        newPF=newPF.map(function(p){
+          if(p.symbol!==t.symbol) return p;
+          var rem=p.shares-t.shares;
+          return rem<=0.001?null:Object.assign({},p,{shares:rem,value:rem*(livePrices[p.symbol]?livePrices[p.symbol].price:p.avgPrice)});
+        }).filter(Boolean);
+      } else {
+        newCash-=t.total;
+        var ex=newPF.find(function(p){ return p.symbol===t.symbol; });
+        if(ex){ ex.shares+=t.shares; ex.value=ex.shares*(livePrices[ex.symbol]?livePrices[ex.symbol].price:ex.avgPrice); }
+        else newPF.push({symbol:t.symbol,shares:t.shares,avgPrice:t.price,value:t.shares*t.price});
+      }
+    }
+    setTrades(newTrades); setPortfolio(newPF); setCashBalance(newCash); setOptionsPositions(newOptions);
+    save(newPF,newTrades,newCash,null,newOptions);
+  }
+
+  function startEditTrade(idx){
+    var t = trades[idx];
+    setEditingTrade(idx);
+    setEditForm(Object.assign({},t));
+  }
+
+  function saveEditTrade(){
+    if(editingTrade===null) return;
+    var oldTrade = trades[editingTrade];
+    var newTrade = Object.assign({},editForm,{
+      shares: parseFloat(editForm.shares)||oldTrade.shares,
+      price:  parseFloat(editForm.price)||oldTrade.price,
+      total:  (parseFloat(editForm.shares)||oldTrade.shares)*(parseFloat(editForm.price)||oldTrade.price)
+    });
+    var newTrades = trades.map(function(t,i){ return i===editingTrade?newTrade:t; });
+    setTrades(newTrades);
+    setEditingTrade(null);
+    setEditForm({});
+    save(null,newTrades,null,null,null);
   }
 
   async function sendChat(){
@@ -1021,23 +1071,58 @@ export default function QuantDashboard() {
               :trades.map(function(t,idx){
                 var isOption = t.type==="OPTION";
                 var bc = isOption?(t.optionType==="CALL"?"#aa88ff":"#ff88aa"):(t.action==="BUY"?"#00ff88":"#ff6644");
-                return React.createElement("div",{key:idx,style:Object.assign({},S.card,{borderLeft:"3px solid "+bc})},
-                  React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:3}},
+                var isEditing = editingTrade===idx;
+                return React.createElement("div",{key:idx,style:Object.assign({},S.card,{borderLeft:"3px solid "+bc,borderColor:isEditing?bc+"80":""})},
+                  React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:3,alignItems:"center"}},
                     React.createElement("span",{style:{color:bc,fontWeight:"bold",fontSize:11}},isOption?("OPTION "+t.optionType+" "+t.action):t.action),
-                    React.createElement("span",{style:{color:"#888888",fontSize:10}},t.date)
+                    React.createElement("div",{style:{display:"flex",gap:6,alignItems:"center"}},
+                      React.createElement("span",{style:{color:"#888888",fontSize:10}},t.date),
+                      React.createElement("button",{
+                        onClick:function(){ startEditTrade(idx); },
+                        style:{background:"linear-gradient(135deg,#0a1428,#0d1f3c)",border:"1px solid #4488ff60",color:"#4488ff",padding:"3px 8px",fontSize:9,letterSpacing:1,cursor:"pointer",borderRadius:3,fontFamily:"inherit"}
+                      },"EDIT"),
+                      React.createElement("button",{
+                        onClick:function(){ if(window.confirm("Delete this trade? This will reverse the position and cash.")) deleteTrade(idx); },
+                        style:{background:"linear-gradient(135deg,#1a0606,#2a0000)",border:"1px solid #ff444460",color:"#ff4444",padding:"3px 8px",fontSize:9,letterSpacing:1,cursor:"pointer",borderRadius:3,fontFamily:"inherit"}
+                      },"DELETE")
+                    )
                   ),
-                  isOption?(
-                    React.createElement("div",{style:{display:"flex",justifyContent:"space-between"}},
-                      React.createElement("span",{style:{color:"#eeeeee",fontSize:13}},t.symbol+" "+t.optionType+" $"+t.strike+" exp:"+t.expiry),
-                      React.createElement("span",{style:{color:"#aaaaaa",fontSize:12}},"$"+t.total.toFixed(2))
+                  isEditing?(
+                    React.createElement("div",{style:{marginTop:8,padding:"10px",background:"#04060e",borderRadius:4,border:"1px solid #4488ff30"}},
+                      React.createElement("div",{style:{color:"#4488ff",fontSize:9,letterSpacing:2,marginBottom:8}},"EDIT TRADE"),
+                      React.createElement("div",{style:{display:"flex",gap:6,marginBottom:6}},
+                        React.createElement("input",{placeholder:"Symbol",value:editForm.symbol||"",onChange:function(e){ setEditForm(Object.assign({},editForm,{symbol:e.target.value.toUpperCase()})); },style:Object.assign({},S.inp,{flex:1})}),
+                        React.createElement("select",{value:editForm.action||"BUY",onChange:function(e){ setEditForm(Object.assign({},editForm,{action:e.target.value})); },style:Object.assign({},S.inp,{width:"auto",color:editForm.action==="BUY"?"#00ff88":"#ff4444"})},
+                          React.createElement("option",{value:"BUY"},"BUY"),
+                          React.createElement("option",{value:"SELL"},"SELL")
+                        )
+                      ),
+                      !isOption&&React.createElement("div",{style:{display:"flex",gap:6,marginBottom:6}},
+                        React.createElement("input",{placeholder:"Shares",type:"number",value:editForm.shares||"",onChange:function(e){ setEditForm(Object.assign({},editForm,{shares:e.target.value})); },style:Object.assign({},S.inp,{flex:1})}),
+                        React.createElement("input",{placeholder:"Price",type:"number",value:editForm.price||"",onChange:function(e){ setEditForm(Object.assign({},editForm,{price:e.target.value})); },style:Object.assign({},S.inp,{flex:1})})
+                      ),
+                      React.createElement("input",{placeholder:"Note",value:editForm.note||"",onChange:function(e){ setEditForm(Object.assign({},editForm,{note:e.target.value})); },style:Object.assign({},S.inp,{marginBottom:8})}),
+                      React.createElement("div",{style:{display:"flex",gap:6}},
+                        React.createElement("button",{onClick:saveEditTrade,style:Object.assign({},S.btn("#4488ff","linear-gradient(135deg,#060e24,#000e44)"),{flex:1,padding:"8px",fontSize:10})},"SAVE CHANGES"),
+                        React.createElement("button",{onClick:function(){ setEditingTrade(null); setEditForm({}); },style:Object.assign({},S.btn("#888888","linear-gradient(135deg,#0a0a0a,#141414)"),{flex:1,padding:"8px",fontSize:10})},"CANCEL")
+                      )
                     )
                   ):(
-                    React.createElement("div",{style:{display:"flex",justifyContent:"space-between"}},
-                      React.createElement("span",{style:{color:"#eeeeee",fontSize:13}},t.symbol+" - "+t.shares+"sh @ $"+t.price),
-                      React.createElement("span",{style:{color:"#aaaaaa",fontSize:12}},"$"+t.total.toFixed(2))
+                    React.createElement("div",null,
+                      isOption?(
+                        React.createElement("div",{style:{display:"flex",justifyContent:"space-between"}},
+                          React.createElement("span",{style:{color:"#eeeeee",fontSize:13}},t.symbol+" "+t.optionType+" $"+t.strike+" exp:"+t.expiry),
+                          React.createElement("span",{style:{color:"#aaaaaa",fontSize:12}},"$"+t.total.toFixed(2))
+                        )
+                      ):(
+                        React.createElement("div",{style:{display:"flex",justifyContent:"space-between"}},
+                          React.createElement("span",{style:{color:"#eeeeee",fontSize:13}},t.symbol+" - "+t.shares+"sh @ $"+t.price),
+                          React.createElement("span",{style:{color:"#aaaaaa",fontSize:12}},"$"+t.total.toFixed(2))
+                        )
+                      ),
+                      t.note&&React.createElement("div",{style:{color:"#777777",fontSize:10,marginTop:3}},t.note)
                     )
-                  ),
-                  t.note&&React.createElement("div",{style:{color:"#777777",fontSize:10,marginTop:3}},t.note)
+                  )
                 );
               })
             }
