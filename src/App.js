@@ -11,7 +11,7 @@ const INITIAL_PORTFOLIO = [
 const PEAK_VALUE = 6222;
 
 const WOLF_PROMPT = function(sym) {
-  return "You are Agent Wolf - a Warren Buffett-style analyst. You see FUNDAMENTALS ONLY. No charts, no news.\nSearch for "+sym+" P/E ratio, revenue growth, earnings history, profit margins, debt, free cash flow.\nBased ONLY on fundamentals, give your vote.\nRespond in pure JSON only:\n{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":850,\"stop\":695,\"reasoning\":\"Strong earnings growth\",\"horizon_days\":5}";
+  return "You are Agent Wolf - a Warren Buffett-style analyst. You see FUNDAMENTALS ONLY. No charts, no news.\nSearch for "+sym+" P/E ratio, revenue growth, earnings history, profit margins, debt, free cash flow.\nBased ONLY on fundamentals, give your vote.\nAlso recommend the best options play: call or put, strike price, expiration (3-7 days out), estimated premium range.\nRespond in pure JSON only:\n{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":850,\"stop\":695,\"reasoning\":\"Strong earnings growth\",\"horizon_days\":5,\"option_type\":\"CALL\",\"option_strike\":760,\"option_expiry\":\"3-5 days\",\"option_premium_est\":\"$2.50-$4.00\"}";
 };
 
 const COHEN_PROMPT = function(sym, price) {
@@ -25,12 +25,14 @@ const COHEN_PROMPT = function(sym, price) {
     + "- Key support and resistance levels\n"
     + "- Bollinger Bands: near upper or lower band?\n"
     + "- Recent price pattern: breakout, consolidation, reversal?\n\n"
+    + "Based on technicals, also recommend the best options play: ATM or slightly OTM call/put, ideal strike, expiration 3-7 days out, estimated premium.\n\n"
     + "Respond in pure JSON only (no markdown):\n"
     + "{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":800,\"stop\":720,"
     + "\"reasoning\":\"RSI neutral, MACD bullish crossover, price above 50MA, volume surging\","
     + "\"horizon_days\":3,\"rsi\":45,\"macd\":\"bullish crossover\","
     + "\"ma_position\":\"above 20MA and 50MA\","
-    + "\"key_support\":720,\"key_resistance\":800}";
+    + "\"key_support\":720,\"key_resistance\":800,"
+    + "\"option_type\":\"CALL\",\"option_strike\":755,\"option_expiry\":\"3-5 days\",\"option_premium_est\":\"$2.00-$3.50\"}";
 };
 
 const DALIO_PROMPT = function(sym, price) {
@@ -41,13 +43,14 @@ const DALIO_PROMPT = function(sym, price) {
     + "2. OPTIONS FLOW: Search for unusual options activity on "+sym+" in the last 48 hours. Are there abnormally large call or put purchases?\n"
     + "3. INSTITUTIONAL POSITIONING: Are hedge funds net buyers or sellers of "+sym+" recently?\n"
     + "4. RELATIVE STRENGTH: How is "+sym+" performing vs its sector peers and vs SPY this week?\n\n"
-    + "Based on sector rotation and options flow signals, give your vote.\n"
+    + "Based on sector rotation and options flow signals, give your vote AND recommend the specific options contract to trade.\n"
     + "Respond in pure JSON only (no markdown):\n"
     + "{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":820,\"stop\":710,"
     + "\"reasoning\":\"Institutions rotating into sector, unusual call buying detected\","
     + "\"horizon_days\":3,\"sector_flow\":\"INFLOW\","
     + "\"options_signal\":\"BULLISH - unusual call volume 3x average\","
-    + "\"relative_strength\":\"outperforming SPY by 2.3 percent\"}";
+    + "\"relative_strength\":\"outperforming SPY by 2.3 percent\","
+    + "\"option_type\":\"CALL\",\"option_strike\":755,\"option_expiry\":\"3-5 days\",\"option_premium_est\":\"$2.50-$4.00\"}";
 };
 
 const ACKMAN_PROMPT = function(sym) {
@@ -59,16 +62,18 @@ const ACKMAN_PROMPT = function(sym) {
     + "- Multiple insiders buying same period = extremely bullish\n"
     + "- Mass insider selling = bearish warning\n"
     + "- No insider activity = neutral\n"
+    + "Also recommend options play based on insider activity and fundamental quality.\n"
     + "Respond in pure JSON only (no markdown):\n"
     + "{\"direction\":\"BUY\",\"conviction\":0.85,\"entry\":750,\"target\":900,\"stop\":690,"
     + "\"reasoning\":\"CEO bought stock recently while fundamentals remain strong\","
     + "\"horizon_days\":7,\"insider_signal\":\"BUYING\","
-    + "\"insider_detail\":\"CEO purchased shares at market price recently\"}";
+    + "\"insider_detail\":\"CEO purchased shares at market price recently\","
+    + "\"option_type\":\"CALL\",\"option_strike\":760,\"option_expiry\":\"5-7 days\",\"option_premium_est\":\"$3.00-$5.00\"}";
 };
 
 const BRIEFING_PROMPT = function() {
   var today = new Date().toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
-  return "You are the Head Quant at an asymmetric AI hedge fund managing Aidan's aggressive retail portfolio.\nToday: "+today+".\n\nAIDAN: Aggressive risk tolerance. Weekly active management. Short-term trades 1-5 days. Goal: beat the market every week.\n\n8-FACTOR QUALITY GATE - mentally score every stock before recommending it:\n1. MOMENTUM - outperforming SPY last 4 weeks?\n2. VALUE - PEG under 2, not wildly overvalued?\n3. QUALITY - profitable, positive FCF, manageable debt?\n4. GROWTH - revenue/earnings accelerating?\n5. REVISION - analysts raising estimates?\n6. SHORT INTEREST - squeeze potential?\n7. INSIDER ACTIVITY - Form 4 insider buying recently?\n8. INSTITUTIONAL FLOW - smart money accumulating?\nOnly recommend stocks scoring 3+ factors. State the score (e.g. 6/8 factors).\n\n6-STRATEGY FRAMEWORK:\n1. MOMENTUM+CATALYST - trending + event within 7 days\n2. MEAN REVERSION DIP - strong stock pulled back 5-15% to support\n3. FACTOR QUALITY - fundamentally strong, institutions buying\n4. EVENT-DRIVEN - CPI, Fed, earnings, FDA dates\n5. SENTIMENT+OPTIONS - unusual call volume, analyst upgrades\n6. RELATIVE STRENGTH - outperforming SPY last 1-4 weeks\n\nCIRCUIT BREAKER RULES:\n- Portfolio down 2.5% today - recommend cash preservation only\n- Any position down 8% from avg - immediate stop loss flag\n- Two positions highly correlated - flag correlation risk\n\nDAILY BRIEFING FORMAT (use exactly):\n\n📊 MARKET OUTLOOK\nDirection: UP or DOWN bias this week\nKey Level: S&P support/resistance to watch\nMacro Driver: The one thing driving everything right now\n\n🎯 COMMITTEE TRADE PLANS (3-5 ideas, quality gate pre-screened)\nCRITICAL FORMAT: Do NOT use markdown headers or ### symbols. Each trade plan must start with a conviction line then individual labeled fields exactly like this:\n\nHIGH CONVICTION: NVDA | LONG (GOING UP)\nQuality Gate: 7/8 factors pass\nStrategy: Momentum + Catalyst\nInsider Signal: NEUTRAL\nEntry: $215.00-$220.00 (buy Monday open)\nTarget: $245.00 (+12% gain, expected by Thursday)\nStop Loss: $205.00 (-5% max loss, sell Friday if not hit)\nTime Window: 3-5 days\nWhy: Earnings beat expected with AI chip demand surging. Price broke above key resistance at $218 on high volume.\nPosition Size: $300\nRisk: Broader market selloff could drag price below stop.\n\nUse HIGH CONVICTION, MEDIUM CONVICTION, or SPECULATIVE as the prefix. Always include real dollar prices for Entry, Target, and Stop Loss.\n\n📅 EVENTS THIS WEEK\nDate | Event | UP/DOWN impact on portfolio\n\n⚠️ RISK + CORRELATION WARNING\nBiggest threat today. Any correlated position pairs to watch.\n\nRULES: Web search first. Real prices only. Specific dollar amounts always. Max 2 tech picks. State position sizes. DO NOT include a portfolio review section - the user has a separate live portfolio tracker. ONLY output Market Outlook, Trade Plans, Events, and Risk Warning sections.\n\nCONSISTENCY RULE: Stay consistent with your trade ideas and recommendations throughout the same trading day. Only change if: (1) Breaking news directly affects a recommended stock, (2) A position hit its stop or target, (3) A major macro event changed market direction, (4) It is a new trading day. Do not randomly generate new ideas each time the button is pressed - hold your conviction.\n\nSTOCK UNIVERSE: Scan the ENTIRE market for best opportunity. Primary: S&P 500 and Nasdaq. Also allowed: any US stock with strong catalyst AND 4+ quality gate factors, volume above 500K daily, price above 3 dollars. Find the single best risk/reward opportunity - mega-cap or lesser-known mid-cap. Diversify across sectors.";
+  return "You are the Head Quant at an asymmetric AI hedge fund managing Aidan's aggressive retail portfolio.\nToday: "+today+".\n\nAIDAN: Aggressive risk tolerance. Weekly active management. Short-term trades 1-5 days. Goal: beat the market every week.\nAidan now trades OPTIONS (calls and puts) as his primary vehicle for leverage. He also still trades stocks. For each trade idea, provide BOTH a stock play AND an options play.\n\n8-FACTOR QUALITY GATE - mentally score every stock before recommending it:\n1. MOMENTUM - outperforming SPY last 4 weeks?\n2. VALUE - PEG under 2, not wildly overvalued?\n3. QUALITY - profitable, positive FCF, manageable debt?\n4. GROWTH - revenue/earnings accelerating?\n5. REVISION - analysts raising estimates?\n6. SHORT INTEREST - squeeze potential?\n7. INSIDER ACTIVITY - Form 4 insider buying recently?\n8. INSTITUTIONAL FLOW - smart money accumulating?\nOnly recommend stocks scoring 3+ factors. State the score (e.g. 6/8 factors).\n\n6-STRATEGY FRAMEWORK:\n1. MOMENTUM+CATALYST - trending + event within 7 days\n2. MEAN REVERSION DIP - strong stock pulled back 5-15% to support\n3. FACTOR QUALITY - fundamentally strong, institutions buying\n4. EVENT-DRIVEN - CPI, Fed, earnings, FDA dates\n5. SENTIMENT+OPTIONS - unusual call volume, analyst upgrades\n6. RELATIVE STRENGTH - outperforming SPY last 1-4 weeks\n\nCIRCUIT BREAKER RULES:\n- Portfolio down 2.5% today - recommend cash preservation only\n- Any position down 8% from avg - immediate stop loss flag\n- Two positions highly correlated - flag correlation risk\n\nDAILY BRIEFING FORMAT (use exactly):\n\n📊 MARKET OUTLOOK\nDirection: UP or DOWN bias this week\nKey Level: S&P support/resistance to watch\nMacro Driver: The one thing driving everything right now\n\n🎯 COMMITTEE TRADE PLANS (3-5 ideas, quality gate pre-screened)\nCRITICAL FORMAT: Do NOT use markdown headers or ### symbols. Each trade plan must start with a conviction line then individual labeled fields exactly like this:\n\nHIGH CONVICTION: NVDA | LONG (GOING UP)\nQuality Gate: 7/8 factors pass\nStrategy: Momentum + Catalyst\nInsider Signal: NEUTRAL\nEntry: $215.00-$220.00 (buy Monday open)\nTarget: $245.00 (+12% gain, expected by Thursday)\nStop Loss: $205.00 (-5% max loss, sell Friday if not hit)\nTime Window: 3-5 days\nWhy: Earnings beat expected with AI chip demand surging. Price broke above key resistance at $218 on high volume.\nPosition Size: $300\nRisk: Broader market selloff could drag price below stop.\nOptions Play: BUY CALL | Strike: $220 | Expiry: 5 days out | Est. Premium: $3.00-$5.00 | Max Risk: $300-$500 (1 contract) | Expected Return: 80-150% if target hit\n\nUse HIGH CONVICTION, MEDIUM CONVICTION, or SPECULATIVE as the prefix. Always include real dollar prices for Entry, Target, and Stop Loss. Always include the Options Play section at the bottom of each trade.\n\n📅 EVENTS THIS WEEK\nDate | Event | UP/DOWN impact on portfolio\n\n⚠️ RISK + CORRELATION WARNING\nBiggest threat today. Any correlated position pairs to watch.\n\nRULES: Web search first. Real prices only. Specific dollar amounts always. Max 2 tech picks. State position sizes. ABSOLUTELY DO NOT include a portfolio review section - there is no portfolio to review here. ABSOLUTELY DO NOT mention USO, NVDA, MU, BITX, SPY as existing holdings. ONLY output these 4 sections: Market Outlook, Trade Plans, Events This Week, Risk Warning. Every single trade plan MUST include an Options Play line - this is mandatory, never skip it.\n\nCONSISTENCY RULE: Stay consistent with your trade ideas and recommendations throughout the same trading day. Only change if: (1) Breaking news directly affects a recommended stock, (2) A position hit its stop or target, (3) A major macro event changed market direction, (4) It is a new trading day. Do not randomly generate new ideas each time the button is pressed - hold your conviction.\n\nSTOCK UNIVERSE: Scan the ENTIRE market for best opportunity. Primary: S&P 500 and Nasdaq. Also allowed: any US stock with strong catalyst AND 4+ quality gate factors, volume above 500K daily, price above 3 dollars. Find the single best risk/reward opportunity - mega-cap or lesser-known mid-cap. Diversify across sectors.";
 };
 
 const S = {
@@ -84,32 +89,46 @@ const S = {
 };
 
 export default function QuantDashboard() {
-  const [portfolio,     setPortfolio]     = useState(INITIAL_PORTFOLIO);
-  const [trades,        setTrades]        = useState([]);
-  const [briefing,      setBriefing]      = useState("");
-  const [loading,       setLoading]       = useState(false);
-  const [activeTab,     setActiveTab]     = useState("briefing");
-  const [cashBalance,   setCashBalance]   = useState(500);
-  const [livePrices,    setLivePrices]    = useState({});
-  const [lastUpdated,   setLastUpdated]   = useState(null);
-  const [chatHistory,   setChatHistory]   = useState([]);
-  const [chatInput,     setChatInput]     = useState("");
-  const [chatLoading,   setChatLoading]   = useState(false);
-  const [tradeForm,     setTradeForm]     = useState({symbol:"",action:"BUY",shares:"",price:"",note:""});
-  const [agentVotes,    setAgentVotes]    = useState({});
-  const [agentLoading,  setAgentLoading]  = useState(false);
-  const [scanSymbol,    setScanSymbol]    = useState("");
-  const [factorScores,  setFactorScores]  = useState({});
-  const [scanLoading,   setScanLoading]   = useState(false);
-  const [riskAlerts,    setRiskAlerts]    = useState([]);
-
+  const [portfolio,       setPortfolio]       = useState(INITIAL_PORTFOLIO);
+  const [optionsPositions,setOptionsPositions] = useState([]);
+  const [trades,          setTrades]          = useState([]);
+  const [briefing,        setBriefing]        = useState("");
+  const [loading,         setLoading]         = useState(false);
+  const [activeTab,       setActiveTab]       = useState("briefing");
+  const [cashBalance,     setCashBalance]     = useState(500);
+  const [livePrices,      setLivePrices]      = useState({});
+  const [lastUpdated,     setLastUpdated]     = useState(null);
+  const [chatHistory,     setChatHistory]     = useState([]);
+  const [chatInput,       setChatInput]       = useState("");
+  const [chatLoading,     setChatLoading]     = useState(false);
+  const [tradeForm,       setTradeForm]       = useState({symbol:"",action:"BUY",shares:"",price:"",note:""});
+  const [optionForm,      setOptionForm]      = useState({symbol:"",type:"CALL",strike:"",expiry:"",contracts:"1",premium:"",note:""});
+  const [agentVotes,      setAgentVotes]      = useState({});
+  const [agentLoading,    setAgentLoading]    = useState(false);
+  const [scanSymbol,      setScanSymbol]      = useState("");
+  const [factorScores,    setFactorScores]    = useState({});
+  const [scanLoading,     setScanLoading]     = useState(false);
+  const [riskAlerts,      setRiskAlerts]      = useState([]);
+  const [portfolioView,   setPortfolioView]   = useState("stocks");
 
   useEffect(function(){ loadData(); fetchLivePrices(); var iv=setInterval(fetchLivePrices,60000); return function(){ clearInterval(iv); }; }, []);
   useEffect(function(){ if(Object.keys(livePrices).length>0) runRiskEngine(); }, [livePrices]);
 
+  function getDaysUntilExpiry(expiryStr) {
+    if(!expiryStr) return null;
+    try {
+      var d = new Date(expiryStr);
+      var now = new Date();
+      var diff = Math.ceil((d - now) / (1000 * 60 * 60 * 24));
+      return diff;
+    } catch(e) { return null; }
+  }
+
   function runRiskEngine() {
     var alerts = [];
-    var totalVal = portfolio.reduce(function(s,p){ return s+p.value; },0)+cashBalance;
+    var stockVal = portfolio.reduce(function(s,p){ return s+p.value; },0);
+    var optVal = optionsPositions.reduce(function(s,o){ return s+(o.contracts*o.premium*100); },0);
+    var totalVal = stockVal + optVal + cashBalance;
     var dayChange = portfolio.reduce(function(s,p){ var l=livePrices[p.symbol]; return s+(l?(l.change/100)*p.value:0); },0);
     var dayPct = totalVal>0?(dayChange/totalVal)*100:0;
     var drawdown = ((totalVal-PEAK_VALUE)/PEAK_VALUE)*100;
@@ -120,6 +139,11 @@ export default function QuantDashboard() {
       var pct=((l.price-p.avgPrice)/p.avgPrice)*100;
       if(pct<=-8) alerts.push({msg:"STOP ZONE - "+p.symbol+": Down "+pct.toFixed(1)+"% from avg - consider cutting",color:"#ff6644"});
       if(pct>=15)  alerts.push({msg:"TARGET ZONE - "+p.symbol+": Up "+pct.toFixed(1)+"% - consider trimming",color:"#00ccff"});
+    });
+    optionsPositions.forEach(function(o){
+      var days = getDaysUntilExpiry(o.expiry);
+      if(days!==null && days<=1) alerts.push({msg:"OPTIONS EXPIRY ALERT - "+o.symbol+" "+o.type+" $"+o.strike+" expires in "+days+" day(s) - CLOSE OR LOSE",color:"#ff2222"});
+      else if(days!==null && days<=2) alerts.push({msg:"OPTIONS WARNING - "+o.symbol+" "+o.type+" $"+o.strike+" expires in "+days+" days - review position",color:"#ffaa00"});
     });
     var techVal = portfolio.filter(function(p){ return ["NVDA","MU","AMAT","AMD","AAPL","MSFT","SMH"].indexOf(p.symbol)>=0; }).reduce(function(s,p){ return s+p.value; },0);
     var invested = portfolio.reduce(function(s,p){ return s+p.value; },0);
@@ -146,17 +170,20 @@ export default function QuantDashboard() {
       var c=localStorage.getItem("ca3"); if(c) setCashBalance(parseFloat(c));
       var ch=localStorage.getItem("ch3"); if(ch) setChatHistory(JSON.parse(ch));
       var fs=localStorage.getItem("fs3"); if(fs) setFactorScores(JSON.parse(fs));
+      var op=localStorage.getItem("op3"); if(op) setOptionsPositions(JSON.parse(op));
     }catch(e){}
   }
 
-  function save(np,nt,nc,nch){
+  function save(np,nt,nc,nch,nop){
     try{
       var pfToSave = np!==null ? (np!=null?np:portfolio) : portfolio;
       var trToSave = nt!==null ? (nt!=null?nt:trades) : trades;
       var caToSave = nc!==null ? (nc!=null?nc:cashBalance) : cashBalance;
+      var opToSave = nop!==null ? (nop!=null?nop:optionsPositions) : optionsPositions;
       localStorage.setItem("pf3",JSON.stringify(pfToSave));
       localStorage.setItem("tr3",JSON.stringify(trToSave));
       localStorage.setItem("ca3",String(caToSave));
+      localStorage.setItem("op3",JSON.stringify(opToSave));
       if(nch!==null) localStorage.setItem("ch3",JSON.stringify(nch!=null?nch:chatHistory));
     }catch(e){ console.error("Save failed:",e); }
   }
@@ -189,7 +216,7 @@ export default function QuantDashboard() {
         return s+":$"+(d.price?d.price.toFixed(2):"?")+"("+(d.change>=0?"+":"")+(d.change?d.change.toFixed(2):"0")+"%)";
       }).join(", ");
       var riskStr=riskAlerts.length?riskAlerts.map(function(a){ return a.msg; }).join("; "):"No active alerts";
-      var msg="Daily briefing: "+new Date().toLocaleDateString()+". LIVE PRICES: "+liveStr+". CASH: $"+cashBalance.toFixed(2)+". RISK: "+riskStr+". Find best trade opportunities today. Run quality gate. Give trade plans only - NO portfolio review."; var txt=await callClaude(BRIEFING_PROMPT(),[{role:"user",content:msg}]);
+      var txt=await callClaude(BRIEFING_PROMPT(),[{role:"user",content:"Daily briefing: "+new Date().toLocaleDateString()+". MARKET PRICES: "+liveStr+" CASH TO DEPLOY: $"+cashBalance.toFixed(2)+" RISK ALERTS: "+riskStr+" Search the market for todays best NEW trade opportunities. Output ONLY: Market Outlook, Trade Plans with OPTIONS PLAY on each, Events This Week, Risk Warning. DO NOT review or mention any existing portfolio positions. DO NOT output a portfolio section. Every trade plan MUST end with an Options Play line showing: contract type, strike, expiry, estimated premium, max risk, expected return if target hit."}]);
       setBriefing(txt);
     }catch(e){ setBriefing("Error - check connection and try again."); }
     setLoading(false);
@@ -203,25 +230,26 @@ export default function QuantDashboard() {
     var votes={};
     try{
       var results=await Promise.all([
-        callClaude(WOLF_PROMPT(symbol),[{role:"user",content:"Search and analyze "+symbol+" fundamentals only. Provide JSON vote."}]),
-        callClaude(COHEN_PROMPT(symbol,priceStr),[{role:"user",content:"Analyze price data only for "+symbol+": "+priceStr+". Provide JSON vote."}],false),
-        callClaude(DALIO_PROMPT(symbol,priceStr),[{role:"user",content:"Search macro context then analyze "+symbol+". Provide JSON vote."}]),
-        callClaude(ACKMAN_PROMPT(symbol),[{role:"user",content:"Search SEC Form 4 insider filings and fundamentals for "+symbol+". Provide JSON vote with insider_signal and insider_detail fields."}]),
+        callClaude(WOLF_PROMPT(symbol),[{role:"user",content:"Search and analyze "+symbol+" fundamentals only. Provide JSON vote including options recommendation."}]),
+        callClaude(COHEN_PROMPT(symbol,priceStr),[{role:"user",content:"Analyze price data only for "+symbol+": "+priceStr+". Provide JSON vote including options recommendation."}],false),
+        callClaude(DALIO_PROMPT(symbol,priceStr),[{role:"user",content:"Search macro context then analyze "+symbol+". Provide JSON vote including options recommendation."}]),
+        callClaude(ACKMAN_PROMPT(symbol),[{role:"user",content:"Search SEC Form 4 insider filings and fundamentals for "+symbol+". Provide JSON vote with insider_signal, insider_detail, and options recommendation fields."}]),
       ]);
       var names=["Wolf (Fundamentals)","Cohen (Price Action)","Dalio (Sector + Options Flow)","Ackman (Insider + Fundamentals)"];
-      for(var i=0;i<3;i++){
+      for(var i=0;i<4;i++){
         try{
           var txt=results[i];
           var clean=txt.split("\u0060\u0060\u0060json").join("").split("\u0060\u0060\u0060").join("").trim();
           var s=clean.indexOf("{"),e=clean.lastIndexOf("}");
           var parsed=JSON.parse(clean.substring(s,e+1));
-          // Build enhanced reasoning for Cohen with technical indicators
           if(names[i]==="Cohen (Price Action)"&&parsed.rsi){
             parsed.technicals="RSI: "+parsed.rsi+" | MACD: "+(parsed.macd||"n/a")+" | MA: "+(parsed.ma_position||"n/a")+" | Support: $"+(parsed.key_support||"n/a")+" | Resistance: $"+(parsed.key_resistance||"n/a");
           }
-          // Build enhanced display for Dalio with sector flow and options
           if(names[i]==="Dalio (Sector + Options Flow)"&&parsed.sector_flow){
             parsed.flowdata="Sector: "+(parsed.sector_flow||"n/a")+" | Options: "+(parsed.options_signal||"n/a")+" | vs SPY: "+(parsed.relative_strength||"n/a");
+          }
+          if(parsed.option_type){
+            parsed.optionsplay=(parsed.option_type||"CALL")+" | Strike: $"+(parsed.option_strike||"?")+" | Expiry: "+(parsed.option_expiry||"3-5 days")+" | Est. Premium: "+(parsed.option_premium_est||"?");
           }
           votes[names[i]]=parsed;
         }catch(err){ votes[names[i]]={direction:"HOLD",conviction:0.5,reasoning:results[i].slice(0,150)}; }
@@ -238,12 +266,36 @@ export default function QuantDashboard() {
       var ackmanVote = votes["Ackman (Insider + Fundamentals)"]||{};
       var insiderSignal = ackmanVote.insider_signal||"NEUTRAL";
       var insiderDetail = ackmanVote.insider_detail||"No recent insider activity found";
+      var optionVotes = Object.values(votes).filter(function(v){ return v.option_type; });
+      var optionTypes = optionVotes.map(function(v){ return v.option_type; });
+      var callCount = optionTypes.filter(function(t){ return t==="CALL"; }).length;
+      var putCount  = optionTypes.filter(function(t){ return t==="PUT"; }).length;
+      var consensusOptionType = callCount>=putCount?"CALL":"PUT";
+      var strikes = optionVotes.filter(function(v){ return v.option_strike; }).map(function(v){ return v.option_strike; });
+      var avgStrike = strikes.length ? (strikes.reduce(function(a,b){ return a+b; },0)/strikes.length).toFixed(2) : null;
+      var premiums = optionVotes.map(function(v){ return v.option_premium_est||""; }).filter(Boolean);
+      var horizons = Object.values(votes).filter(function(v){ return v.horizon_days; }).map(function(v){ return v.horizon_days; });
+      var avgHorizon = horizons.length ? Math.round(horizons.reduce(function(a,b){ return a+b; },0)/horizons.length) : 5;
+      var tradeTypeDecision = avgHorizon<=3?"OPTIONS":avgHorizon<=5?"OPTIONS_OR_STOCK":"STOCK";
+      var tradeTypeReason = avgHorizon<=3
+        ? "Agents see "+avgHorizon+"-day avg hold. Short window favors options leverage — theta decay minimal, move expected fast."
+        : avgHorizon<=5
+        ? "Agents see "+avgHorizon+"-day avg hold. Either works — use options for higher conviction (3/4+), stock for safer play."
+        : "Agents see "+avgHorizon+"-day avg hold. Longer window favors stock — theta decay would eat options premium over this horizon.";
       votes["_c"]={symbol:symbol,consensus:consensus,buys:buys,sells:sells,holds:4-buys-sells,avgConv:avgConv.toFixed(2),stars:stars,
         entry:entries.length?"$"+Math.min.apply(null,entries).toFixed(2)+"-$"+Math.max.apply(null,entries).toFixed(2):null,
         target:targets.length?"$"+(targets.reduce(function(a,b){ return a+b; },0)/targets.length).toFixed(2):null,
         stop:stops.length?"$"+Math.min.apply(null,stops).toFixed(2):null,
         insiderSignal:insiderSignal,
-        insiderDetail:insiderDetail};
+        insiderDetail:insiderDetail,
+        consensusOptionType:consensusOptionType,
+        consensusStrike:avgStrike,
+        consensusPremium:premiums[0]||null,
+        callCount:callCount,
+        putCount:putCount,
+        avgHorizon:avgHorizon,
+        tradeTypeDecision:tradeTypeDecision,
+        tradeTypeReason:tradeTypeReason};
       setAgentVotes(function(prev){ return Object.assign({},prev,{[symbol]:votes}); });
     }catch(e){
       console.error(e);
@@ -284,7 +336,7 @@ export default function QuantDashboard() {
 
   function logTrade(){
     if(!tradeForm.symbol||!tradeForm.shares||!tradeForm.price) return;
-    var trade=Object.assign({},tradeForm,{date:new Date().toLocaleDateString(),shares:parseFloat(tradeForm.shares),price:parseFloat(tradeForm.price),total:parseFloat(tradeForm.shares)*parseFloat(tradeForm.price)});
+    var trade=Object.assign({},tradeForm,{type:"STOCK",date:new Date().toLocaleDateString(),shares:parseFloat(tradeForm.shares),price:parseFloat(tradeForm.price),total:parseFloat(tradeForm.shares)*parseFloat(tradeForm.price)});
     var newTrades=[trade,...trades];
     var newPF=[...portfolio],newCash=cashBalance;
     if(trade.action==="BUY"){
@@ -302,7 +354,47 @@ export default function QuantDashboard() {
     }
     setTrades(newTrades); setPortfolio(newPF); setCashBalance(newCash);
     setTradeForm({symbol:"",action:"BUY",shares:"",price:"",note:""});
-    save(newPF,newTrades,newCash,null);
+    save(newPF,newTrades,newCash,null,null);
+  }
+
+  function logOptionTrade(){
+    if(!optionForm.symbol||!optionForm.strike||!optionForm.premium) return;
+    var contracts = parseInt(optionForm.contracts)||1;
+    var premium = parseFloat(optionForm.premium);
+    var totalCost = contracts * premium * 100;
+    var trade={
+      type:"OPTION",
+      action:optionForm.action||"BUY",
+      symbol:optionForm.symbol.toUpperCase(),
+      optionType:optionForm.type,
+      strike:parseFloat(optionForm.strike),
+      expiry:optionForm.expiry,
+      contracts:contracts,
+      premium:premium,
+      total:totalCost,
+      note:optionForm.note,
+      date:new Date().toLocaleDateString(),
+      status:"OPEN"
+    };
+    var newCash = cashBalance - totalCost;
+    var newOptions = [...optionsPositions, trade];
+    var newTrades = [trade, ...trades];
+    setOptionsPositions(newOptions);
+    setCashBalance(newCash);
+    setTrades(newTrades);
+    setOptionForm({symbol:"",type:"CALL",strike:"",expiry:"",contracts:"1",premium:"",note:""});
+    save(null,newTrades,newCash,null,newOptions);
+  }
+
+  function closeOptionPosition(idx){
+    var pos = optionsPositions[idx];
+    if(!pos) return;
+    var newOptions = optionsPositions.filter(function(_,i){ return i!==idx; });
+    var closeTrade = Object.assign({},pos,{action:"SELL",date:new Date().toLocaleDateString(),status:"CLOSED"});
+    var newTrades = [closeTrade,...trades];
+    setOptionsPositions(newOptions);
+    setTrades(newTrades);
+    save(null,newTrades,null,null,newOptions);
   }
 
   async function sendChat(){
@@ -312,18 +404,21 @@ export default function QuantDashboard() {
     var newH=[...chatHistory,uMsg]; setChatHistory(newH); setChatInput("");
     try{
       var portStr=portfolio.map(function(p){ return p.symbol+":$"+(livePrices[p.symbol]&&livePrices[p.symbol].price?livePrices[p.symbol].price.toFixed(2):"?"); }).join(", ");
-      var txt=await callClaude(BRIEFING_PROMPT()+"\nPortfolio:"+portStr+". Cash:$"+cashBalance.toFixed(2)+". Use quality gate + 6-strategy framework.",newH.slice(-10));
+      var optStr=optionsPositions.length?optionsPositions.map(function(o){ return o.symbol+" "+o.optionType+" $"+o.strike+" exp:"+o.expiry; }).join(", "):"none";
+      var txt=await callClaude(BRIEFING_PROMPT()+"\nPortfolio:"+portStr+". Options:"+optStr+". Cash:$"+cashBalance.toFixed(2)+". Use quality gate + 6-strategy framework. Always include options play recommendations.",newH.slice(-10));
       var aMsg={role:"assistant",content:txt};
-      var fH=[...newH,aMsg]; setChatHistory(fH); save(null,null,null,fH);
+      var fH=[...newH,aMsg]; setChatHistory(fH); save(null,null,null,fH,null);
     }catch(e){ setChatHistory([...newH,{role:"assistant",content:"Error. Please retry."}]); }
     setChatLoading(false);
   }
 
-  var totalInvested = portfolio.reduce(function(s,p){ return s+(p.shares*p.avgPrice); },0);
-  var totalValue    = portfolio.reduce(function(s,p){ return s+p.value; },0)+cashBalance;
-  var totalPnL      = portfolio.reduce(function(s,p){ return s+(p.value-p.shares*p.avgPrice); },0);
-  var drawdown      = ((totalValue-PEAK_VALUE)/PEAK_VALUE)*100;
-  var dayChange     = portfolio.reduce(function(s,p){ return s+(livePrices[p.symbol]?(livePrices[p.symbol].change/100)*p.value:0); },0);
+  var totalStockValue   = portfolio.reduce(function(s,p){ return s+p.value; },0);
+  var totalOptionsValue = optionsPositions.reduce(function(s,o){ return s+(o.contracts*o.premium*100); },0);
+  var totalInvested     = portfolio.reduce(function(s,p){ return s+(p.shares*p.avgPrice); },0);
+  var totalValue        = totalStockValue + totalOptionsValue + cashBalance;
+  var totalPnL          = portfolio.reduce(function(s,p){ return s+(p.value-p.shares*p.avgPrice); },0);
+  var drawdown          = ((totalValue-PEAK_VALUE)/PEAK_VALUE)*100;
+  var dayChange         = portfolio.reduce(function(s,p){ return s+(livePrices[p.symbol]?(livePrices[p.symbol].change/100)*p.value:0); },0);
 
   function fmt(text){
     var lines = text.split("\n");
@@ -351,8 +446,10 @@ export default function QuantDashboard() {
         else if(/^Position Size:/i.test(lt)){ f.size=lt.replace(/^Position Size:/i,"").trim(); currentField="size"; }
         else if(/^Risk:/i.test(lt)){ f.risk=lt.replace(/^Risk:/i,"").trim(); currentField="risk"; }
         else if(/^Insider Signal:/i.test(lt)){ f.insider=lt.replace(/^Insider Signal:/i,"").trim(); currentField="insider"; }
+        else if(/^Options Play:/i.test(lt)){ f.optplay=lt.replace(/^Options Play:/i,"").trim(); currentField="optplay"; }
         else if(currentField==="why"){ f.why=(f.why||"")+" "+lt; }
         else if(currentField==="risk"){ f.risk=(f.risk||"")+" "+lt; }
+        else if(currentField==="optplay"){ f.optplay=(f.optplay||"")+" "+lt; }
       });
       var isHigh=tradeHeader.toUpperCase().includes("HIGH");
       var isMed=tradeHeader.toUpperCase().includes("MEDIUM");
@@ -405,6 +502,10 @@ export default function QuantDashboard() {
               React.createElement("div",{style:{color:"#999999",fontSize:9,letterSpacing:2,marginBottom:5}},"WHY THIS TRADE"),
               React.createElement("div",{style:{color:"#dddddd",fontSize:13,lineHeight:1.7}},f.why.trim())
             ),
+            f.optplay&&React.createElement("div",{style:{background:"#0a0a2a",borderRadius:6,padding:"10px 12px",marginBottom:8,border:"2px solid #aa88ff40"}},
+              React.createElement("div",{style:{color:"#aa88ff",fontSize:9,letterSpacing:2,marginBottom:6}},"OPTIONS PLAY"),
+              React.createElement("div",{style:{color:"#cc99ff",fontSize:12,lineHeight:1.7,fontWeight:"bold"}},f.optplay.trim())
+            ),
             f.size&&React.createElement("div",{style:{background:"#ffffff08",borderRadius:5,padding:"6px 12px",marginBottom:8,display:"flex",alignItems:"center",gap:8}},
               React.createElement("span",{style:{color:"#888888",fontSize:9,letterSpacing:2}},"POSITION SIZE:"),
               React.createElement("span",{style:{color:"#ffffff",fontSize:14,fontWeight:"bold"}},f.size)
@@ -422,14 +523,10 @@ export default function QuantDashboard() {
     while(i<lines.length){
       var line=lines[i];
       var lt=line.trim();
-
-      // Detect trade plan start - any line with conviction level + symbol + direction
       var isTradeStart=(lt.toUpperCase().includes("HIGH CONVICTION")||lt.toUpperCase().includes("MEDIUM CONVICTION")||lt.toUpperCase().includes("SPECULATIVE"))&&lt.includes("|")&&lt.length<200;
-      // Also catch lines immediately followed by Quality Gate or Strategy
       if(!isTradeStart&&lt.length<200&&(lt.toUpperCase().includes("LONG")||lt.toUpperCase().includes("SHORT"))&&lt.includes("|")){
         isTradeStart=i+1<lines.length&&/Quality Gate:|Strategy:|Entry:|Insider/i.test(lines[i+1]||"");
       }
-
       if(isTradeStart){
         if(inTrade) flushTrade("t"+i);
         inTrade=true; tradeHeader=lt; i++; continue;
@@ -441,16 +538,12 @@ export default function QuantDashboard() {
           tradeLines.push(lt); i++; continue;
         }
       }
-
-      // Section headers — always green, always same style
       if(/^[📊💼🎯⚠️📅]/.test(lt)||/^#+\s*[📊💼🎯⚠️📅]/.test(lt)){
         output.push(React.createElement("div",{key:i,style:{color:"#00ff88",fontWeight:"bold",marginTop:24,marginBottom:8,fontSize:14,borderBottom:"2px solid #00ff8825",paddingBottom:6,letterSpacing:1}},lt.replace(/^#+\s*/,"")));
       }
-      // Portfolio review lines — symbol with UP/DOWN/HOLD/TRIM
       else if(/^\[?(UP|DOWN|HOLD|ADD|TRIM)/i.test(lt)||(/^(USO|NVDA|MU|BITX|SPY|AMAT|AMD|AAPL|MSFT)/i.test(lt)&&lt.length<150)){
         output.push(React.createElement("div",{key:i,style:{padding:"6px 10px",background:"#0a0e18",borderRadius:4,marginBottom:4,fontSize:12,color:"#cccccc",borderLeft:"3px solid #1a2a1a"}},lt));
       }
-      // Table rows
       else if(lt.startsWith("|")&&!lt.includes("---")){
         var cells=lt.split("|").filter(function(c){ return c.trim(); });
         var isHdr=i+1<lines.length&&(lines[i+1]||"").includes("---");
@@ -458,15 +551,12 @@ export default function QuantDashboard() {
           cells.map(function(c,j){ return React.createElement("div",{key:j,style:{padding:"4px 8px",background:isHdr?"#1a2a1a":"#0c1018",border:"1px solid #1a2a1a",borderRadius:3,color:isHdr?"#00ff88":"#cccccc",fontSize:11,fontWeight:isHdr?"bold":"normal",textAlign:"center"}},c.trim()); })
         ));
       }
-      // Bullet points
       else if(lt.startsWith("-")||lt.startsWith("*")){
         output.push(React.createElement("div",{key:i,style:{color:"#cccccc",paddingLeft:14,marginBottom:4,fontSize:12}},"→ "+lt.slice(1).trim()));
       }
-      // Empty lines
       else if(lt===""){
         output.push(React.createElement("div",{key:i,style:{height:6}}));
       }
-      // Everything else — plain text
       else {
         output.push(React.createElement("div",{key:i,style:{color:"#cccccc",fontSize:12,marginBottom:3,lineHeight:1.6}},lt));
       }
@@ -487,6 +577,7 @@ export default function QuantDashboard() {
           <div style={{fontSize:10,color:"#778877",marginTop:2}}>
             Today: <span style={{color:dayChange>=0?"#00ff88":"#ff4444"}}>{dayChange>=0?"+":""}{dayChange.toFixed(2)}</span>
             {" · "}Drawdown: <span style={{color:drawdown>=-4?"#00ff88":drawdown>=-8?"#ffcc00":"#ff4444"}}>{drawdown.toFixed(1)}%</span>
+            {optionsPositions.length>0&&<span style={{color:"#aa88ff",marginLeft:8}}> · Options: {optionsPositions.length} open</span>}
           </div>
         </div>
         <div style={{textAlign:"right"}}>
@@ -535,6 +626,7 @@ export default function QuantDashboard() {
               <div style={{textAlign:"center",padding:50,color:"#446644",border:"1px dashed #2a4a2a",borderRadius:4}}>
                 <div style={{fontSize:28,marginBottom:8}}>📈</div>
                 <div style={{fontSize:10,letterSpacing:2}}>HIT BRIEFING TO START YOUR DAY</div>
+                <div style={{fontSize:10,color:"#aa88ff",marginTop:8,letterSpacing:1}}>NOW INCLUDES OPTIONS PLAYS FOR EVERY TRADE</div>
               </div>
             )}
           </div>
@@ -542,8 +634,8 @@ export default function QuantDashboard() {
 
         {activeTab==="committee"&&(
           <div>
-            <div style={S.lbl}>3-AGENT COMMITTEE — INFORMATION ASYMMETRY</div>
-            <div style={{fontSize:11,color:"#889988",marginBottom:12,lineHeight:1.6}}>Wolf sees fundamentals only. Cohen sees technicals only. Dalio sees sector rotation + options flow. Ackman sees insider filings + fundamentals. They vote independently — 4-agent consensus.</div>
+            <div style={S.lbl}>4-AGENT COMMITTEE — INFORMATION ASYMMETRY</div>
+            <div style={{fontSize:11,color:"#889988",marginBottom:12,lineHeight:1.6}}>Wolf sees fundamentals only. Cohen sees technicals only. Dalio sees sector rotation + options flow. Ackman sees insider filings + fundamentals. All 4 agents now recommend options contracts.</div>
             <div style={S.card}>
               <div style={S.lbl}>SCAN SYMBOL</div>
               <div style={{display:"flex",gap:6,marginBottom:8}}>
@@ -582,6 +674,7 @@ export default function QuantDashboard() {
                 );
               })()}
             </div>
+
             {agentVotes[scanSymbol]&&(function(){
               var votes=agentVotes[scanSymbol];
               var C=votes["_c"];
@@ -595,13 +688,51 @@ export default function QuantDashboard() {
                   React.createElement("div",{style:{display:"flex",gap:16,marginBottom:10}},
                     React.createElement("span",{style:{color:"#00ff88",fontSize:13,fontWeight:"bold"}},"Buy: "+(C&&C.buys)+"/4"),
                     React.createElement("span",{style:{color:"#ff6666",fontSize:13,fontWeight:"bold"}},"Sell: "+(C&&C.sells)+"/4"),
-                    React.createElement("span",{style:{color:"#aaaaaa",fontSize:12}},"Conviction: "+(C&&C.avgConv))
+                    React.createElement("span",{style:{color:"#aaaaaa",fontSize:12}},"Conviction: "+(C&&C.avgConv)),
+                    React.createElement("span",{style:{color:"#888888",fontSize:12}},"Avg hold: "+(C&&C.avgHorizon)+"d")
                   ),
+
+                  C&&C.tradeTypeDecision&&(function(){
+                    var isOptions = C.tradeTypeDecision==="OPTIONS";
+                    var isBorderline = C.tradeTypeDecision==="OPTIONS_OR_STOCK";
+                    var isStock = C.tradeTypeDecision==="STOCK";
+                    var bgColor = isOptions?"#0a1a0a":isBorderline?"#1a1400":"#0a0a1a";
+                    var borderColor = isOptions?"#00ff88":isBorderline?"#ffcc00":"#4488ff";
+                    var labelColor = isOptions?"#00ff88":isBorderline?"#ffcc00":"#4488ff";
+                    var icon = isOptions?"📊":isBorderline?"⚖️":"📈";
+                    var label = isOptions?"USE OPTIONS":isBorderline?"OPTIONS OR STOCK":"USE STOCK";
+                    return React.createElement("div",{style:{background:bgColor,borderRadius:6,padding:"12px 14px",marginBottom:10,border:"2px solid "+borderColor}},
+                      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}},
+                        React.createElement("div",{style:{color:"#888888",fontSize:9,letterSpacing:2}},"COMMITTEE TRADE TYPE DECISION"),
+                        React.createElement("div",{style:{color:labelColor,fontSize:15,fontWeight:"bold",letterSpacing:1}},icon+" "+label)
+                      ),
+                      React.createElement("div",{style:{color:"#cccccc",fontSize:11,lineHeight:1.6}},C.tradeTypeReason),
+                      isOptions&&C.consensusOptionType&&React.createElement("div",{style:{marginTop:8,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}},
+                        React.createElement("div",{style:{background:"#ffffff08",borderRadius:4,padding:"6px 8px",textAlign:"center"}},
+                          React.createElement("div",{style:{color:"#666666",fontSize:9,marginBottom:2}},"CONTRACT"),
+                          React.createElement("div",{style:{color:C.consensusOptionType==="CALL"?"#00ff88":"#ff4444",fontSize:13,fontWeight:"bold"}},(C.consensusOptionType==="CALL"?"📈":"📉")+" "+C.consensusOptionType)
+                        ),
+                        C.consensusStrike&&React.createElement("div",{style:{background:"#ffffff08",borderRadius:4,padding:"6px 8px",textAlign:"center"}},
+                          React.createElement("div",{style:{color:"#666666",fontSize:9,marginBottom:2}},"AVG STRIKE"),
+                          React.createElement("div",{style:{color:"#00ccff",fontSize:13,fontWeight:"bold"}},"$"+C.consensusStrike)
+                        ),
+                        C.consensusPremium&&React.createElement("div",{style:{background:"#ff000015",borderRadius:4,padding:"6px 8px",textAlign:"center",border:"1px solid #ff444420"}},
+                          React.createElement("div",{style:{color:"#ff444499",fontSize:9,marginBottom:2}},"MAX RISK"),
+                          React.createElement("div",{style:{color:"#ff8866",fontSize:13,fontWeight:"bold"}},"$"+(parseFloat((C.consensusPremium||"0").replace(/[^0-9.]/g,""))*100).toFixed(0))
+                        )
+                      ),
+                      isBorderline&&React.createElement("div",{style:{marginTop:6,color:"#ffcc00",fontSize:10}},
+                        "High conviction (3/4+) votes: lean options. Medium conviction (2/4): lean stock."
+                      )
+                    );
+                  })(),
+
                   C&&C.insiderSignal&&React.createElement("div",{style:{background:"#1a1200",borderRadius:4,padding:"6px 10px",marginBottom:8,border:"1px solid #ffaa0030"}},
                     React.createElement("div",{style:{color:"#ffaa00",fontSize:9,letterSpacing:2,marginBottom:2}},"ACKMAN INSIDER SIGNAL"),
                     React.createElement("div",{style:{color:C.insiderSignal==="BUYING"?"#00ff88":C.insiderSignal==="SELLING"?"#ff4444":"#aaaaaa",fontSize:12,fontWeight:"bold"}},"👁 "+C.insiderSignal),
                     C.insiderDetail&&React.createElement("div",{style:{color:"#888888",fontSize:11,marginTop:2}},C.insiderDetail)
                   ),
+
                   C&&C.entry&&React.createElement("div",{style:{color:"#00ff88",fontSize:12,marginBottom:3}},"Entry: "+C.entry),
                   C&&C.target&&React.createElement("div",{style:{color:"#00ccff",fontSize:12,marginBottom:3}},"Target: "+C.target),
                   C&&C.stop&&React.createElement("div",{style:{color:"#ff4444",fontSize:12,marginBottom:12}},"Stop: "+C.stop),
@@ -619,7 +750,11 @@ export default function QuantDashboard() {
                     ),
                     React.createElement("div",{style:{color:"#bbbbbb",fontSize:11,lineHeight:1.5}},vote.reasoning),
                     vote.technicals&&React.createElement("div",{style:{marginTop:6,padding:"5px 8px",background:"#060a10",borderRadius:3,color:"#4488ff",fontSize:10,lineHeight:1.6}},vote.technicals),
-                    vote.flowdata&&React.createElement("div",{style:{marginTop:6,padding:"5px 8px",background:"#060a10",borderRadius:3,color:"#aa88ff",fontSize:10,lineHeight:1.6}},vote.flowdata)
+                    vote.flowdata&&React.createElement("div",{style:{marginTop:6,padding:"5px 8px",background:"#060a10",borderRadius:3,color:"#aa88ff",fontSize:10,lineHeight:1.6}},vote.flowdata),
+                    vote.optionsplay&&React.createElement("div",{style:{marginTop:6,padding:"6px 8px",background:"#0d0a1a",borderRadius:3,border:"1px solid #aa88ff30"}},
+                      React.createElement("div",{style:{color:"#aa88ff",fontSize:9,letterSpacing:2,marginBottom:2}},"OPTIONS RECOMMENDATION"),
+                      React.createElement("div",{style:{color:"#cc99ff",fontSize:11}},vote.optionsplay)
+                    )
                   );
                 })
               );
@@ -632,8 +767,10 @@ export default function QuantDashboard() {
             <div style={S.lbl}>INSTITUTIONAL RISK MANAGEMENT</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:12}}>
               {[
-                ["Total Value","$"+totalValue.toFixed(2),"#00ff88"],
+                ["Stock Value","$"+totalStockValue.toFixed(2),"#00ff88"],
+                ["Options Value","$"+totalOptionsValue.toFixed(2),"#aa88ff"],
                 ["Cash Buffer","$"+cashBalance.toFixed(2)+" ("+((cashBalance/totalValue)*100).toFixed(0)+"%)","#4488ff"],
+                ["Total Value","$"+totalValue.toFixed(2),"#ffffff"],
                 ["Open P&L",(totalPnL>=0?"+":"")+"$"+totalPnL.toFixed(2),totalPnL>=0?"#00ff88":"#ff4444"],
                 ["Today",(dayChange>=0?"+":"")+"$"+dayChange.toFixed(2),dayChange>=0?"#00ff88":"#ff4444"],
                 ["Drawdown",drawdown.toFixed(2)+"%",drawdown>=-4?"#00ff88":drawdown>=-8?"#ffcc00":"#ff4444"],
@@ -651,6 +788,7 @@ export default function QuantDashboard() {
                 {label:"Daily Loss Limit",limit:"2.5%",triggered:dayChange/totalValue*100<=-2.5},
                 {label:"Max Drawdown",limit:"8% from peak",triggered:drawdown<=-8},
                 {label:"Position Stop",limit:"8% per position",triggered:false},
+                {label:"Options Max Risk",limit:"$300 per contract",triggered:false},
               ].map(function(cb){
                 return React.createElement("div",{key:cb.label,style:{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #08080a"}},
                   React.createElement("span",{style:{color:"#aaaaaa",fontSize:11}},cb.label),
@@ -659,6 +797,20 @@ export default function QuantDashboard() {
                 );
               })}
             </div>
+            {optionsPositions.length>0&&React.createElement("div",{style:S.card},
+              React.createElement("div",{style:S.lbl},"OPEN OPTIONS POSITIONS"),
+              optionsPositions.map(function(o,idx){
+                var days = getDaysUntilExpiry(o.expiry);
+                var urgColor = days!==null&&days<=1?"#ff2222":days!==null&&days<=2?"#ffaa00":"#aa88ff";
+                return React.createElement("div",{key:idx,style:{padding:"8px 10px",background:"#04060e",borderRadius:3,marginBottom:6,borderLeft:"3px solid "+urgColor}},
+                  React.createElement("div",{style:{display:"flex",justifyContent:"space-between"}},
+                    React.createElement("span",{style:{color:"#ddd",fontWeight:"bold",fontSize:12}},o.symbol+" "+o.optionType+" $"+o.strike),
+                    React.createElement("span",{style:{color:urgColor,fontSize:11}},(days!==null?days+" days left":"exp: "+o.expiry))
+                  ),
+                  React.createElement("div",{style:{color:"#aaaaaa",fontSize:10,marginTop:2}},o.contracts+" contract(s) · premium $"+o.premium+" · cost $"+(o.contracts*o.premium*100).toFixed(0))
+                );
+              })
+            )}
             <div style={S.card}>
               <div style={S.lbl}>ACTIVE ALERTS ({riskAlerts.length})</div>
               {riskAlerts.length===0?
@@ -698,46 +850,104 @@ export default function QuantDashboard() {
 
         {activeTab==="portfolio"&&(
           <div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:12}}>
-              {[["INVESTED","$"+totalInvested.toFixed(0),"#666"],["CASH","$"+cashBalance.toFixed(0),"#4488ff"],["TOTAL","$"+totalValue.toFixed(0),"#00ff88"]].map(function(item){
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:12}}>
+              {[["STOCKS","$"+totalStockValue.toFixed(0),"#00ff88"],["OPTIONS","$"+totalOptionsValue.toFixed(0),"#aa88ff"],["CASH","$"+cashBalance.toFixed(0),"#4488ff"],["TOTAL","$"+totalValue.toFixed(0),"#ffffff"]].map(function(item){
                 return React.createElement("div",{key:item[0],style:{background:"#06080f",border:"1px solid #0a120a",borderRadius:4,padding:"8px",textAlign:"center"}},
                   React.createElement("div",{style:{color:"#889988",fontSize:9,letterSpacing:2,marginBottom:2}},item[0]),
-                  React.createElement("div",{style:{color:item[2],fontSize:14,fontWeight:"bold"}},item[1])
+                  React.createElement("div",{style:{color:item[2],fontSize:13,fontWeight:"bold"}},item[1])
                 );
               })}
             </div>
-            {portfolio.map(function(p,idx){
-              var live=livePrices[p.symbol];
-              var pnlPct=live?((live.price-p.avgPrice)/p.avgPrice)*100:((p.value/(p.shares*p.avgPrice))-1)*100;
-              var pnlD=p.value-p.shares*p.avgPrice;
-              var atStop=pnlPct<=-8,atTgt=pnlPct>=15;
-              var bc=atStop?"#ff4444":atTgt?"#00ccff":pnlPct>=0?"#00ff88":"#ff6644";
-              return React.createElement("div",{key:idx,style:Object.assign({},S.card,{borderLeft:"3px solid "+bc})},
-                React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:4}},
-                  React.createElement("div",null,
-                    React.createElement("span",{style:{color:"#fff",fontWeight:"bold",fontSize:14}},p.symbol),
-                    atStop&&React.createElement("span",{style:{color:"#ff6666",fontSize:10,marginLeft:8}},"STOP ZONE"),
-                    atTgt&&React.createElement("span",{style:{color:"#00ddff",fontSize:10,marginLeft:8}},"TARGET ZONE")
-                  ),
-                  React.createElement("span",{style:{color:"#ddd",fontSize:13}},"$"+p.value.toFixed(2))
-                ),
-                React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:live?4:0}},
-                  React.createElement("span",{style:{color:"#aaaaaa",fontSize:10}},p.shares.toFixed(4)+"sh @ $"+p.avgPrice.toFixed(2)),
-                  React.createElement("span",{style:{color:pnlPct>=0?"#00ff88":"#ff4444",fontSize:12,fontWeight:"bold"}},(pnlPct>=0?"+":"")+pnlPct.toFixed(2)+"% ("+(pnlD>=0?"+":"")+"$"+pnlD.toFixed(2)+")")
-                ),
-                live&&React.createElement("div",{style:{display:"flex",gap:10,fontSize:10}},
-                  React.createElement("span",{style:{color:"#999999"}},"Live: "),
-                  React.createElement("span",{style:{color:"#ffffff"}},"$"+live.price.toFixed(2)),
-                  React.createElement("span",{style:{color:"#999999"}},"H: "),
-                  React.createElement("span",{style:{color:"#cccccc"}},"$"+(live.high?live.high.toFixed(2):"-")),
-                  React.createElement("span",{style:{color:"#999999"}},"L: "),
-                  React.createElement("span",{style:{color:"#cccccc"}},"$"+(live.low?live.low.toFixed(2):"-")),
-                  React.createElement("span",{style:{color:live.change>=0?"#00ff8850":"#ff444450"}},(live.change>=0?"▲":"▼")+Math.abs(live.change).toFixed(2)+"%")
-                )
-              );
-            })}
-            <div style={Object.assign({},S.card,{marginTop:16})}>
-              <div style={S.lbl}>LOG TRADE</div>
+
+            <div style={{display:"flex",gap:6,marginBottom:12}}>
+              <button onClick={function(){ setPortfolioView("stocks"); }} style={Object.assign({},S.btn(portfolioView==="stocks"?"#00ff88":"#446644",portfolioView==="stocks"?"linear-gradient(135deg,#003322,#006644)":"linear-gradient(135deg,#060a0a,#0a1010)"),{flex:1,padding:"8px",fontSize:10})}>STOCKS ({portfolio.length})</button>
+              <button onClick={function(){ setPortfolioView("options"); }} style={Object.assign({},S.btn(portfolioView==="options"?"#aa88ff":"#443366",portfolioView==="options"?"linear-gradient(135deg,#18082a,#300050)":"linear-gradient(135deg,#060a0a,#0a1010)"),{flex:1,padding:"8px",fontSize:10})}>OPTIONS ({optionsPositions.length})</button>
+            </div>
+
+            {portfolioView==="stocks"&&(
+              <div>
+                {portfolio.map(function(p,idx){
+                  var live=livePrices[p.symbol];
+                  var pnlPct=live?((live.price-p.avgPrice)/p.avgPrice)*100:((p.value/(p.shares*p.avgPrice))-1)*100;
+                  var pnlD=p.value-p.shares*p.avgPrice;
+                  var atStop=pnlPct<=-8,atTgt=pnlPct>=15;
+                  var bc=atStop?"#ff4444":atTgt?"#00ccff":pnlPct>=0?"#00ff88":"#ff6644";
+                  return React.createElement("div",{key:idx,style:Object.assign({},S.card,{borderLeft:"3px solid "+bc})},
+                    React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:4}},
+                      React.createElement("div",null,
+                        React.createElement("span",{style:{color:"#fff",fontWeight:"bold",fontSize:14}},p.symbol),
+                        atStop&&React.createElement("span",{style:{color:"#ff6666",fontSize:10,marginLeft:8}},"STOP ZONE"),
+                        atTgt&&React.createElement("span",{style:{color:"#00ddff",fontSize:10,marginLeft:8}},"TARGET ZONE")
+                      ),
+                      React.createElement("span",{style:{color:"#ddd",fontSize:13}},"$"+p.value.toFixed(2))
+                    ),
+                    React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:live?4:0}},
+                      React.createElement("span",{style:{color:"#aaaaaa",fontSize:10}},p.shares.toFixed(4)+"sh @ $"+p.avgPrice.toFixed(2)),
+                      React.createElement("span",{style:{color:pnlPct>=0?"#00ff88":"#ff4444",fontSize:12,fontWeight:"bold"}},(pnlPct>=0?"+":"")+pnlPct.toFixed(2)+"% ("+(pnlD>=0?"+":"")+"$"+pnlD.toFixed(2)+")")
+                    ),
+                    live&&React.createElement("div",{style:{display:"flex",gap:10,fontSize:10}},
+                      React.createElement("span",{style:{color:"#999999"}},"Live: "),
+                      React.createElement("span",{style:{color:"#ffffff"}},"$"+live.price.toFixed(2)),
+                      React.createElement("span",{style:{color:"#999999"}},"H: "),
+                      React.createElement("span",{style:{color:"#cccccc"}},"$"+(live.high?live.high.toFixed(2):"-")),
+                      React.createElement("span",{style:{color:"#999999"}},"L: "),
+                      React.createElement("span",{style:{color:"#cccccc"}},"$"+(live.low?live.low.toFixed(2):"-")),
+                      React.createElement("span",{style:{color:live.change>=0?"#00ff8850":"#ff444450"}},(live.change>=0?"▲":"▼")+Math.abs(live.change).toFixed(2)+"%")
+                    )
+                  );
+                })}
+              </div>
+            )}
+
+            {portfolioView==="options"&&(
+              <div>
+                {optionsPositions.length===0?(
+                  React.createElement("div",{style:{textAlign:"center",padding:30,color:"#443355",border:"1px dashed #2a1a4a",borderRadius:4}},
+                    React.createElement("div",{style:{fontSize:24,marginBottom:8}},"📊"),
+                    React.createElement("div",{style:{fontSize:10,letterSpacing:2,color:"#aa88ff"}},"NO OPEN OPTIONS POSITIONS"),
+                    React.createElement("div",{style:{fontSize:10,color:"#555555",marginTop:6}},"Log an options trade below to start tracking")
+                  )
+                ):(
+                  optionsPositions.map(function(o,idx){
+                    var days = getDaysUntilExpiry(o.expiry);
+                    var urgColor = days!==null&&days<=1?"#ff2222":days!==null&&days<=2?"#ffaa00":"#aa88ff";
+                    var totalCost = o.contracts*o.premium*100;
+                    return React.createElement("div",{key:idx,style:Object.assign({},S.card,{borderLeft:"3px solid "+urgColor,borderColor:urgColor+"40"})},
+                      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:6}},
+                        React.createElement("div",null,
+                          React.createElement("span",{style:{color:"#fff",fontWeight:"bold",fontSize:14}},o.symbol),
+                          React.createElement("span",{style:{color:o.optionType==="CALL"?"#00ff88":"#ff4444",fontWeight:"bold",fontSize:13,marginLeft:8}},o.optionType),
+                          React.createElement("span",{style:{color:"#cccccc",fontSize:12,marginLeft:6}},"$"+o.strike)
+                        ),
+                        React.createElement("span",{style:{color:urgColor,fontSize:11,fontWeight:"bold"}},(days!==null?days+" days left":"exp: "+o.expiry))
+                      ),
+                      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:8}},
+                        React.createElement("div",{style:{background:"#ffffff08",borderRadius:4,padding:"6px 8px",textAlign:"center"}},
+                          React.createElement("div",{style:{color:"#666666",fontSize:9,marginBottom:2}},"CONTRACTS"),
+                          React.createElement("div",{style:{color:"#cccccc",fontSize:13,fontWeight:"bold"}},o.contracts)
+                        ),
+                        React.createElement("div",{style:{background:"#ffffff08",borderRadius:4,padding:"6px 8px",textAlign:"center"}},
+                          React.createElement("div",{style:{color:"#666666",fontSize:9,marginBottom:2}},"PREMIUM PAID"),
+                          React.createElement("div",{style:{color:"#ffcc00",fontSize:13,fontWeight:"bold"}},"$"+o.premium)
+                        ),
+                        React.createElement("div",{style:{background:"#ff000015",borderRadius:4,padding:"6px 8px",textAlign:"center",border:"1px solid #ff444430"}},
+                          React.createElement("div",{style:{color:"#ff444499",fontSize:9,marginBottom:2}},"MAX LOSS"),
+                          React.createElement("div",{style:{color:"#ff6666",fontSize:13,fontWeight:"bold"}},"$"+totalCost.toFixed(0))
+                        )
+                      ),
+                      days!==null&&days<=1&&React.createElement("div",{style:{background:"#2a0000",borderRadius:4,padding:"6px 10px",marginBottom:8,border:"1px solid #ff222240",textAlign:"center"}},
+                        React.createElement("span",{style:{color:"#ff2222",fontSize:11,fontWeight:"bold"}},"EXPIRING SOON - CLOSE THIS POSITION OR LOSE ENTIRE PREMIUM")
+                      ),
+                      o.note&&React.createElement("div",{style:{color:"#777777",fontSize:10,marginBottom:6}},o.note),
+                      React.createElement("button",{onClick:function(){ closeOptionPosition(idx); },style:Object.assign({},S.btn("#ff8844","linear-gradient(135deg,#1a0800,#2a1000)"),{padding:"7px",fontSize:10})},"CLOSE POSITION (SELL TO CLOSE)")
+                    );
+                  })
+                )}
+              </div>
+            )}
+
+            <div style={Object.assign({},S.card,{marginTop:16,border:"1px solid #1a2a1a"})}>
+              <div style={S.lbl}>LOG STOCK TRADE</div>
               <div style={{display:"flex",gap:6,marginBottom:6}}>
                 <input placeholder="SYMBOL" value={tradeForm.symbol} onChange={function(e){ setTradeForm(Object.assign({},tradeForm,{symbol:e.target.value.toUpperCase()})); }} style={Object.assign({},S.inp,{flex:1})}/>
                 <select value={tradeForm.action} onChange={function(e){ setTradeForm(Object.assign({},tradeForm,{action:e.target.value})); }} style={Object.assign({},S.inp,{width:"auto",color:tradeForm.action==="BUY"?"#00ff88":"#ff4444"})}>
@@ -749,8 +959,36 @@ export default function QuantDashboard() {
                 <input placeholder="Price" type="number" value={tradeForm.price} onChange={function(e){ setTradeForm(Object.assign({},tradeForm,{price:e.target.value})); }} style={Object.assign({},S.inp,{flex:1})}/>
               </div>
               <input placeholder="Note / strategy" value={tradeForm.note} onChange={function(e){ setTradeForm(Object.assign({},tradeForm,{note:e.target.value})); }} style={Object.assign({},S.inp,{marginBottom:8})}/>
-              <button onClick={logTrade} style={S.btn()}>CONFIRM TRADE</button>
+              <button onClick={logTrade} style={S.btn()}>CONFIRM STOCK TRADE</button>
             </div>
+
+            <div style={Object.assign({},S.card,{marginTop:10,border:"2px solid #aa88ff30"})}>
+              <div style={Object.assign({},S.lbl,{color:"#aa88ff"})}>LOG OPTIONS TRADE (BUY TO OPEN)</div>
+              <div style={{display:"flex",gap:6,marginBottom:6}}>
+                <input placeholder="SYMBOL" value={optionForm.symbol} onChange={function(e){ setOptionForm(Object.assign({},optionForm,{symbol:e.target.value.toUpperCase()})); }} style={Object.assign({},S.inp,{flex:1})}/>
+                <select value={optionForm.type} onChange={function(e){ setOptionForm(Object.assign({},optionForm,{type:e.target.value})); }} style={Object.assign({},S.inp,{width:"auto",color:optionForm.type==="CALL"?"#00ff88":"#ff4444"})}>
+                  <option value="CALL">CALL</option><option value="PUT">PUT</option>
+                </select>
+              </div>
+              <div style={{display:"flex",gap:6,marginBottom:6}}>
+                <input placeholder="Strike Price e.g. 220" type="number" value={optionForm.strike} onChange={function(e){ setOptionForm(Object.assign({},optionForm,{strike:e.target.value})); }} style={Object.assign({},S.inp,{flex:1})}/>
+                <input placeholder="Expiry e.g. 2026-05-17" value={optionForm.expiry} onChange={function(e){ setOptionForm(Object.assign({},optionForm,{expiry:e.target.value})); }} style={Object.assign({},S.inp,{flex:1})}/>
+              </div>
+              <div style={{display:"flex",gap:6,marginBottom:6}}>
+                <input placeholder="Contracts e.g. 1" type="number" value={optionForm.contracts} onChange={function(e){ setOptionForm(Object.assign({},optionForm,{contracts:e.target.value})); }} style={Object.assign({},S.inp,{flex:1})}/>
+                <input placeholder="Premium paid e.g. 2.50" type="number" value={optionForm.premium} onChange={function(e){ setOptionForm(Object.assign({},optionForm,{premium:e.target.value})); }} style={Object.assign({},S.inp,{flex:1})}/>
+              </div>
+              {optionForm.contracts&&optionForm.premium&&(
+                React.createElement("div",{style:{background:"#0d0a1a",borderRadius:4,padding:"6px 10px",marginBottom:8,border:"1px solid #aa88ff20"}},
+                  React.createElement("span",{style:{color:"#aa88ff",fontSize:10}},"Total cost: "),
+                  React.createElement("span",{style:{color:"#ffcc00",fontWeight:"bold",fontSize:13}},"$"+(parseInt(optionForm.contracts||1)*parseFloat(optionForm.premium||0)*100).toFixed(0)),
+                  React.createElement("span",{style:{color:"#666666",fontSize:10,marginLeft:8}},"("+optionForm.contracts+" contract x $"+optionForm.premium+" x 100)")
+                )
+              )}
+              <input placeholder="Note e.g. Cohen vote 3/4 bullish" value={optionForm.note} onChange={function(e){ setOptionForm(Object.assign({},optionForm,{note:e.target.value})); }} style={Object.assign({},S.inp,{marginBottom:8})}/>
+              <button onClick={logOptionTrade} style={S.btn("#aa88ff","linear-gradient(135deg,#18082a,#300050)")}>CONFIRM OPTIONS TRADE</button>
+            </div>
+
             <div style={Object.assign({},S.card,{marginTop:8,border:"1px solid #1a2a3a"})}>
               <div style={S.lbl}>SET CASH BALANCE</div>
               <div style={{display:"flex",gap:8}}>
@@ -781,14 +1019,23 @@ export default function QuantDashboard() {
                 React.createElement("div",{style:{fontSize:10,letterSpacing:2}},"NO TRADES LOGGED YET")
               )
               :trades.map(function(t,idx){
-                return React.createElement("div",{key:idx,style:Object.assign({},S.card,{borderLeft:"3px solid "+(t.action==="BUY"?"#00ff88":"#ff6644")})},
+                var isOption = t.type==="OPTION";
+                var bc = isOption?(t.optionType==="CALL"?"#aa88ff":"#ff88aa"):(t.action==="BUY"?"#00ff88":"#ff6644");
+                return React.createElement("div",{key:idx,style:Object.assign({},S.card,{borderLeft:"3px solid "+bc})},
                   React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:3}},
-                    React.createElement("span",{style:{color:t.action==="BUY"?"#00ff88":"#ff6644",fontWeight:"bold",fontSize:11}},t.action),
+                    React.createElement("span",{style:{color:bc,fontWeight:"bold",fontSize:11}},isOption?("OPTION "+t.optionType+" "+t.action):t.action),
                     React.createElement("span",{style:{color:"#888888",fontSize:10}},t.date)
                   ),
-                  React.createElement("div",{style:{display:"flex",justifyContent:"space-between"}},
-                    React.createElement("span",{style:{color:"#eeeeee",fontSize:13}},t.symbol+" - "+t.shares+"sh @ $"+t.price),
-                    React.createElement("span",{style:{color:"#aaaaaa",fontSize:12}},"$"+t.total.toFixed(2))
+                  isOption?(
+                    React.createElement("div",{style:{display:"flex",justifyContent:"space-between"}},
+                      React.createElement("span",{style:{color:"#eeeeee",fontSize:13}},t.symbol+" "+t.optionType+" $"+t.strike+" exp:"+t.expiry),
+                      React.createElement("span",{style:{color:"#aaaaaa",fontSize:12}},"$"+t.total.toFixed(2))
+                    )
+                  ):(
+                    React.createElement("div",{style:{display:"flex",justifyContent:"space-between"}},
+                      React.createElement("span",{style:{color:"#eeeeee",fontSize:13}},t.symbol+" - "+t.shares+"sh @ $"+t.price),
+                      React.createElement("span",{style:{color:"#aaaaaa",fontSize:12}},"$"+t.total.toFixed(2))
+                    )
                   ),
                   t.note&&React.createElement("div",{style:{color:"#777777",fontSize:10,marginTop:3}},t.note)
                 );
@@ -802,7 +1049,10 @@ export default function QuantDashboard() {
             <div style={S.lbl}>ASK YOUR QUANT</div>
             <div style={{background:"#04060e",border:"1px solid #0a120a",borderRadius:4,padding:12,minHeight:220,maxHeight:420,overflowY:"auto",marginBottom:10}}>
               {chatHistory.length===0?
-                React.createElement("div",{style:{color:"#446644",fontSize:10,letterSpacing:2,textAlign:"center",marginTop:70}},"ASK ANYTHING - ENTRIES, EXITS, STRATEGY, MARKET")
+                React.createElement("div",{style:{color:"#446644",fontSize:10,letterSpacing:2,textAlign:"center",marginTop:70}},
+                  React.createElement("div",null,"ASK ANYTHING - ENTRIES, EXITS, STRATEGY, MARKET"),
+                  React.createElement("div",{style:{color:"#aa88ff",marginTop:8,letterSpacing:1}},"OPTIONS PLAYS INCLUDED IN ALL RESPONSES")
+                )
                 :chatHistory.map(function(m,idx){
                   return React.createElement("div",{key:idx,style:{marginBottom:14}},
                     React.createElement("div",{style:{fontSize:9,color:m.role==="user"?"#00ff8899":"#4488ffaa",letterSpacing:2,marginBottom:4}},m.role==="user"?"YOU":"QUANT"),
@@ -813,7 +1063,7 @@ export default function QuantDashboard() {
               {chatLoading&&React.createElement("div",{style:{color:"#00ff8866",fontSize:10,letterSpacing:2}},"Searching market data...")}
             </div>
             <div style={{display:"flex",gap:8}}>
-              <input placeholder="Entry on MU? Should I hold AMAT? What is SPY doing?" value={chatInput} onChange={function(e){ setChatInput(e.target.value); }} onKeyDown={function(e){ if(e.key==="Enter") sendChat(); }} style={Object.assign({},S.inp,{flex:1})}/>
+              <input placeholder="Entry on NVDA? Best call option? What is SPY doing?" value={chatInput} onChange={function(e){ setChatInput(e.target.value); }} onKeyDown={function(e){ if(e.key==="Enter") sendChat(); }} style={Object.assign({},S.inp,{flex:1})}/>
               <button onClick={sendChat} disabled={chatLoading} style={Object.assign({},S.btn("#4488ff","linear-gradient(135deg,#060e24,#000e44)"),{width:"auto",padding:"8px 16px"})}>GO</button>
             </div>
           </div>
