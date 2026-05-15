@@ -579,10 +579,10 @@ export default function QuantDashboard() {
             <button onClick={getDailyBriefing} disabled={loading} style={S.btn()}>
               {loading?"⟳ Searching macro data...":"▶ GET MACRO MARKET BRIEFING"}
             </button>
-            <div style={{marginTop:8,marginBottom:12,padding:"8px 12px",background:"#0a0e18",borderRadius:4,border:"1px solid #1a1a2a",display:"flex",justifyContent:"space-between",alignItems:"center"}},
+            {React.createElement("div",{style:{marginTop:8,marginBottom:12,padding:"8px 12px",background:"#0a0e18",borderRadius:4,border:"1px solid #1a1a2a",display:"flex",justifyContent:"space-between",alignItems:"center"}},
               React.createElement("span",{style:{color:"#445566",fontSize:10}},"Fed · Inflation · Geopolitics · Sector Rotation · Options Environment"),
               React.createElement("span",{style:{color:"#aa88ff",fontSize:10,cursor:"pointer"},onClick:function(){ setActiveTab("scanner"); }},"→ OPTIONS PLAYS IN SCANNER TAB")
-            ),
+            )}
             {briefing?(
               <div style={{background:"#070a12",border:"1px solid #1a1a2a",borderRadius:6,padding:16,lineHeight:1.65}}>{fmtBriefing(briefing)}</div>
             ):(
@@ -909,10 +909,10 @@ export default function QuantDashboard() {
               }
               {chatLoading&&React.createElement("div",{style:{color:"#aa88ff66",fontSize:10,letterSpacing:2}},"Searching...")}
             </div>
-            <div style={{display:"flex",gap:8}},
+            {React.createElement("div",{style:{display:"flex",gap:8}},
               React.createElement("input",{placeholder:"Best call on NVDA? Is ON a good options play? What is SPY doing?",value:chatInput,onChange:function(e){ setChatInput(e.target.value); },onKeyDown:function(e){ if(e.key==="Enter") sendChat(); },style:Object.assign({},S.inp,{flex:1})}),
               React.createElement("button",{onClick:sendChat,disabled:chatLoading,style:Object.assign({},S.btn("#4488ff","linear-gradient(135deg,#060e24,#000e44)"),{width:"auto",padding:"8px 16px"})},"GO")
-            )
+            )}
           </div>
         )}
 
