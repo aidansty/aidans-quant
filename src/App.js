@@ -17,13 +17,17 @@ const COHEN_PROMPT = function(sym, price) {
   return "You are Agent Cohen - an elite technical analyst focused on OPTIONS TIMING. Your job is to identify the exact technical setup for a 1-5 day options play on "+sym+".\n"
     + "Current price data: "+price+"\n\n"
     + "Search for: RSI (14-day), MACD, 20/50-day moving averages, volume, support/resistance, Bollinger Bands.\n"
-    + "Key question: Is the technical setup strong enough to buy a call or put RIGHT NOW with a 1-5 day expiry?\n"
+    + "Also search for the options chain on "+sym+": look for the ATM strike open interest, bid/ask spread, and estimated delta.\n"
+    + "LIQUIDITY CHECK: Is open interest above 500? Is bid/ask spread tight (under $0.15)? These are required for a good options play.\n"
+    + "Key question: Is the technical setup strong enough AND options liquid enough to buy a call or put RIGHT NOW with a 1-5 day expiry?\n"
     + "Respond in pure JSON only:\n"
     + "{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":800,\"stop\":720,"
     + "\"reasoning\":\"MACD bullish crossover, RSI not overbought, breaking resistance\",\"horizon_days\":3,"
     + "\"rsi\":45,\"macd\":\"bullish crossover\",\"ma_position\":\"above 20MA and 50MA\","
     + "\"key_support\":720,\"key_resistance\":800,"
-    + "\"option_type\":\"CALL\",\"option_strike\":755,\"option_expiry\":\"3-5 days\",\"option_premium_est\":\"$2.00-$3.50\"}";
+    + "\"option_type\":\"CALL\",\"option_strike\":755,\"option_expiry\":\"3-5 days\",\"option_premium_est\":\"$2.00-$3.50\","
+    + "\"delta\":0.45,\"open_interest\":1500,\"bid_ask_spread\":\"$0.05\",\"liquidity_ok\":true,"
+    + "\"theta_daily\":\"$0.08\",\"days_to_expiry\":4}";
 };
 
 const DALIO_PROMPT = function(sym, price) {
@@ -92,6 +96,56 @@ const SCANNER_CANDIDATES_PROMPT = function(liveStr) {
     + "{\"candidates\":[\"AAPL\",\"XLE\",\"SOFI\",\"META\",\"GLD\",\"AMD\"]}";
 };
 
+const REGIME_PROMPT = function(liveStr) {
+  var today = new Date().toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+  return "You are a Market Regime Detection specialist. Today: "+today+".
+
+"
+    + "Your ONLY job is to determine the current market regime and whether conditions favor buying options RIGHT NOW.
+
+"
+    + "Search for current data on:
+"
+    + "1. VIX level and direction - is fear rising or falling?
+"
+    + "2. SPY trend - above or below 20-day and 50-day moving averages?
+"
+    + "3. Market breadth - are most stocks rising or falling today?
+"
+    + "4. Recent realized volatility - has the market been choppy or trending?
+"
+    + "5. Macro risk events in next 7 days - Fed, CPI, earnings season?
+
+"
+    + "Classify the current regime as ONE of these:
+"
+    + "TRENDING_BULL - market in clear uptrend, momentum plays work, buy calls
+"
+    + "TRENDING_BEAR - market in clear downtrend, buy puts, avoid calls
+"
+    + "CHOPPY_NEUTRAL - market going sideways, options decay fast, avoid buying premium
+"
+    + "HIGH_VOLATILITY - VIX elevated above 25, premiums expensive, size down heavily
+"
+    + "EVENT_DRIVEN - major catalyst coming within 3 days, event plays only
+
+"
+    + "Current market prices for context: "+liveStr+"
+
+"
+    + "Respond in pure JSON only:
+"
+    + "{"regime":"TRENDING_BULL","vix":18.5,"vix_direction":"falling","
+    + ""spy_trend":"above 20MA and 50MA","breadth":"65% of stocks advancing","
+    + ""options_environment":"FAVORABLE","bias":"CALLS","
+    + ""best_strategy":"Momentum + Catalyst plays. Buy ATM calls on strong stocks with upcoming catalysts.","
+    + ""avoid":"Avoid buying puts unless clear breakdown signal.","
+    + ""sizing_modifier":1.0,"
+    + ""regime_summary":"Market is in a clean uptrend with falling volatility. Best week to buy calls on momentum stocks.","
+    + ""trade_or_wait":"TRADE","
+    + ""wait_reason":""}";
+};
+
 const CHAT_SYSTEM = function(cash, positions) {
   var posStr = positions.length ? positions.map(function(o){ return o.symbol+" "+o.optionType+" $"+o.strike+" exp:"+o.expiry+" ("+o.contracts+" contract, paid $"+o.premium+")"; }).join(" | ") : "none";
   var totalPremium = positions.reduce(function(s,o){ return s+(o.contracts*o.premium*100); },0);
@@ -145,6 +199,8 @@ export default function QuantDashboard() {
   const [manualSymbol,     setManualSymbol]     = useState("");
   const [manualLoading,    setManualLoading]    = useState(false);
   const [manualResult,     setManualResult]     = useState(null);
+  const [regime,           setRegime]           = useState(null);
+  const [regimeLoading,    setRegimeLoading]    = useState(false);
 
   useEffect(function(){ loadData(); fetchLivePrices(); var iv=setInterval(fetchLivePrices,60000); return function(){ clearInterval(iv); }; },[]);
   useEffect(function(){ runRiskEngine(); },[optionsPositions, cashBalance]);
@@ -188,6 +244,7 @@ export default function QuantDashboard() {
       var c=localStorage.getItem("ca3"); if(c) setCashBalance(parseFloat(c));
       var ch=localStorage.getItem("ch3"); if(ch) setChatHistory(JSON.parse(ch));
       var sr=localStorage.getItem("sr3"); if(sr) setScanResults(JSON.parse(sr));
+      var rg=localStorage.getItem("rg3"); if(rg) setRegime(JSON.parse(rg));
     }catch(e){}
   }
 
@@ -288,12 +345,36 @@ export default function QuantDashboard() {
     var ttr=avgH<=3?"Agents see "+avgH+"-day window. Buy ATM or slightly OTM contract expiring in 3-4 days."
       :avgH<=5?"Agents see "+avgH+"-day window. Buy ATM contract expiring in 5-7 days."
       :"Agents see "+avgH+"-day window. Buy slightly ITM contract with 7+ days to give time to work.";
+    // Extract Greeks and liquidity from Cohen vote
+    var cohenV=votes["Cohen (Price Action)"]||{};
+    var delta=cohenV.delta||null;
+    var theta=cohenV.theta_daily||null;
+    var openInterest=cohenV.open_interest||null;
+    var bidAskSpread=cohenV.bid_ask_spread||null;
+    var liquidityOk=cohenV.liquidity_ok!==false;
+    var daysToExpiry=cohenV.days_to_expiry||avgH;
+    // Dynamic position sizing based on conviction + liquidity
+    var maxRisk=50; // default low
+    if(buys>=4||sells>=4) maxRisk=150; // 4/4 agents = higher size
+    else if(buys>=3||sells>=3) maxRisk=100; // 3/4 agents
+    else if(buys>=2||sells>=2) maxRisk=75; // 2/4 minimum
+    if(!liquidityOk) maxRisk=Math.min(maxRisk,50); // cut size if illiquid
+    // Theta decay warning
+    var thetaWarning=null;
+    if(daysToExpiry<=2) thetaWarning="HIGH THETA RISK - "+daysToExpiry+" days left, decay accelerating fast";
+    else if(daysToExpiry<=3) thetaWarning="MODERATE THETA - sell if up 40%+ before expiry";
+    // Exit rules based on premium
+    var premNum=prems[0]?parseFloat(prems[0].replace(/[^0-9.]/g,"")):null;
+    var takeProfit=premNum?"$"+(premNum*1.5).toFixed(2)+" (+50% gain) — take at least half off here":null;
+    var stopLoss=premNum?"$"+(premNum*0.5).toFixed(2)+" (-50% loss) — exit immediately, do not hold":null;
     return {symbol:symbol,votes:votes,consensus:consensus,buys:buys,sells:sells,avgConv:avgConv.toFixed(2),stars:stars,
       entry:validEntry,target:validTarget,stop:validStop,
       insiderSignal:ackV.insider_signal||"NEUTRAL",insiderDetail:ackV.insider_detail||"No recent insider activity",
       consensusOptionType:conOptType,consensusStrike:avgStrike,consensusPremium:prems[0]||null,
       callCount:callC,putCount:putC,avgHorizon:avgH,tradeTypeDecision:ttd,tradeTypeReason:ttr,
-      passesCommittee:buys>=2||sells>=2};
+      passesCommittee:buys>=2||sells>=2,
+      delta:delta,theta:theta,openInterest:openInterest,bidAskSpread:bidAskSpread,liquidityOk:liquidityOk,
+      daysToExpiry:daysToExpiry,maxRisk:maxRisk,thetaWarning:thetaWarning,takeProfit:takeProfit,stopLoss:stopLoss};
   }
 
   async function runAgentsOnSymbol(symbol){
@@ -306,6 +387,20 @@ export default function QuantDashboard() {
       callClaude(ACKMAN_PROMPT(symbol),[{role:"user",content:"Search SEC Form 4 filings for "+symbol+". JSON only."}]),
     ]);
     return buildCommitteeResult(symbol,results);
+  }
+
+  async function runRegimeFilter(){
+    setRegimeLoading(true);
+    try{
+      var liveStr=Object.entries(livePrices).map(function(e){ return e[0]+":$"+(e[1].price?e[1].price.toFixed(2):"?"); }).join(", ");
+      var txt=await callClaude(REGIME_PROMPT(liveStr),[{role:"user",content:"Analyze current market regime right now. Search VIX, SPY trend, breadth, volatility. Return pure JSON only."}]);
+      var clean=txt.split("\u0060\u0060\u0060json").join("").split("\u0060\u0060\u0060").join("").trim();
+      var s=clean.indexOf("{"),e=clean.lastIndexOf("}");
+      var parsed=JSON.parse(clean.substring(s,e+1));
+      setRegime(parsed);
+      try{ localStorage.setItem("rg3",JSON.stringify(parsed)); }catch(ex){}
+    }catch(err){ setRegime({regime:"UNKNOWN",options_environment:"UNKNOWN",trade_or_wait:"WAIT",regime_summary:"Could not determine regime. Try again.",wait_reason:"Analysis failed - "+err.message}); }
+    setRegimeLoading(false);
   }
 
   async function runMarketScan(){
@@ -440,21 +535,68 @@ export default function QuantDashboard() {
             React.createElement("span",{style:{color:"#888",fontSize:9,letterSpacing:2}},"COMMITTEE OPTIONS RECOMMENDATION"),
             React.createElement("span",{style:{color:optColor,fontSize:18,fontWeight:"bold"}},(C.consensusOptionType==="CALL"?"📈 BUY CALL":"📉 BUY PUT"))
           ),
-          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}},
+          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:8}},
             C.consensusStrike&&React.createElement("div",{style:{background:"#ffffff10",borderRadius:4,padding:"8px",textAlign:"center"}},
               React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"STRIKE PRICE"),
-              React.createElement("div",{style:{color:"#00ccff",fontSize:15,fontWeight:"bold"}},"$"+C.consensusStrike)
+              React.createElement("div",{style:{color:"#00ccff",fontSize:14,fontWeight:"bold"}},"$"+C.consensusStrike)
             ),
             C.avgHorizon&&React.createElement("div",{style:{background:"#ffffff10",borderRadius:4,padding:"8px",textAlign:"center"}},
               React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"EXPIRY"),
-              React.createElement("div",{style:{color:"#ffcc00",fontSize:15,fontWeight:"bold"}},C.avgHorizon+" days out")
+              React.createElement("div",{style:{color:"#ffcc00",fontSize:14,fontWeight:"bold"}},C.avgHorizon+" days out")
             ),
             C.consensusPremium&&React.createElement("div",{style:{background:"#ff000015",borderRadius:4,padding:"8px",textAlign:"center",border:"1px solid #ff444420"}},
               React.createElement("div",{style:{color:"#ff4444aa",fontSize:9,marginBottom:2}},"EST. COST"),
               React.createElement("div",{style:{color:"#ff8866",fontSize:13,fontWeight:"bold"}},C.consensusPremium)
             )
           ),
-          React.createElement("div",{style:{color:"#cccccc",fontSize:11,lineHeight:1.6}},C.tradeTypeReason)
+          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:10}},
+            C.delta&&React.createElement("div",{style:{background:"#ffffff08",borderRadius:4,padding:"6px 8px",textAlign:"center"}},
+              React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"DELTA"),
+              React.createElement("div",{style:{color:"#88ccff",fontSize:12,fontWeight:"bold"}},C.delta),
+              React.createElement("div",{style:{color:"#556677",fontSize:8}},"moves per $1")
+            ),
+            C.theta&&React.createElement("div",{style:{background:"#ffffff08",borderRadius:4,padding:"6px 8px",textAlign:"center"}},
+              React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"THETA/DAY"),
+              React.createElement("div",{style:{color:"#ff8844",fontSize:12,fontWeight:"bold"}},C.theta),
+              React.createElement("div",{style:{color:"#556677",fontSize:8}},"decay per day")
+            ),
+            C.openInterest&&React.createElement("div",{style:{background:C.openInterest>500?"#001a0d":"#1a0800",borderRadius:4,padding:"6px 8px",textAlign:"center",border:"1px solid "+(C.openInterest>500?"#00ff8830":"#ff884430")}},
+              React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"OPEN INT."),
+              React.createElement("div",{style:{color:C.openInterest>500?"#00ff88":"#ff8844",fontSize:12,fontWeight:"bold"}},C.openInterest),
+              React.createElement("div",{style:{color:"#556677",fontSize:8}},C.openInterest>500?"liquid":"low liquidity")
+            ),
+            React.createElement("div",{style:{background:C.liquidityOk?"#001a0d":"#1a0800",borderRadius:4,padding:"6px 8px",textAlign:"center",border:"1px solid "+(C.liquidityOk?"#00ff8830":"#ff444430")}},
+              React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"LIQUIDITY"),
+              React.createElement("div",{style:{color:C.liquidityOk?"#00ff88":"#ff4444",fontSize:12,fontWeight:"bold"}},C.liquidityOk?"✓ OK":"✗ POOR"),
+              C.bidAskSpread&&React.createElement("div",{style:{color:"#556677",fontSize:8}},"spread: "+C.bidAskSpread)
+            )
+          ),
+          React.createElement("div",{style:{background:"#0a0820",borderRadius:4,padding:"8px 10px",marginBottom:8,border:"1px solid #aa88ff20"}},
+            React.createElement("div",{style:{color:"#aa88ff",fontSize:9,letterSpacing:2,marginBottom:4}},"POSITION SIZING — "+C.buys+"/4 AGENTS"),
+            React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+              React.createElement("span",{style:{color:"#cccccc",fontSize:11}},"Recommended max risk:"),
+              React.createElement("span",{style:{color:"#ffcc00",fontSize:14,fontWeight:"bold"}},"$"+C.maxRisk+" (1 contract)")
+            ),
+            React.createElement("div",{style:{color:"#556677",fontSize:9,marginTop:2}},
+              C.buys>=4||C.sells>=4?"4/4 agents agree — highest sizing allowed":
+              C.buys>=3||C.sells>=3?"3/4 agents agree — medium sizing":
+              "2/4 agents agree — minimum sizing, be cautious"
+            )
+          ),
+          C.thetaWarning&&React.createElement("div",{style:{background:"#1a0800",borderRadius:4,padding:"7px 10px",marginBottom:8,border:"1px solid #ff884430"}},
+            React.createElement("span",{style:{color:"#ff8844",fontSize:10,fontWeight:"bold"}},"⏰ "+C.thetaWarning)
+          ),
+          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}},
+            C.takeProfit&&React.createElement("div",{style:{background:"#001a0d",borderRadius:4,padding:"7px 10px",border:"1px solid #00ff8830"}},
+              React.createElement("div",{style:{color:"#00ff88",fontSize:9,letterSpacing:1,marginBottom:2}},"TAKE PROFIT"),
+              React.createElement("div",{style:{color:"#00ff88",fontSize:11,fontWeight:"bold"}},C.takeProfit)
+            ),
+            C.stopLoss&&React.createElement("div",{style:{background:"#1a0000",borderRadius:4,padding:"7px 10px",border:"1px solid #ff444430"}},
+              React.createElement("div",{style:{color:"#ff4444",fontSize:9,letterSpacing:1,marginBottom:2}},"STOP LOSS"),
+              React.createElement("div",{style:{color:"#ff6666",fontSize:11,fontWeight:"bold"}},C.stopLoss)
+            )
+          ),
+          React.createElement("div",{style:{color:"#778899",fontSize:10,lineHeight:1.6}},C.tradeTypeReason)
         ),
         !C.passesCommittee&&React.createElement("div",{style:{background:"#1a0a00",borderRadius:6,padding:"10px 14px",marginBottom:12,border:"2px solid #ff880040",textAlign:"center"}},
           React.createElement("div",{style:{color:"#ff8844",fontSize:13,fontWeight:"bold",marginBottom:4}},"COMMITTEE REJECTED"),
@@ -576,6 +718,18 @@ export default function QuantDashboard() {
               <span style={{color:"#aa88ff",fontSize:10,letterSpacing:2}}>{new Date().toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"}).toUpperCase()}</span>
               <span style={{color:"#aaaaaa",fontSize:11}}>Cash: <span style={{color:"#00ff88",fontWeight:"bold"}}>{"$"}{cashBalance.toFixed(2)}</span></span>
             </div>
+            {regime&&React.createElement("div",{style:{
+              display:"flex",justifyContent:"space-between",alignItems:"center",
+              padding:"6px 12px",background:"#0a0e18",borderRadius:4,
+              border:"1px solid "+(regime.trade_or_wait==="TRADE"?"#00ff8830":regime.trade_or_wait==="WAIT"?"#ff444430":"#ffcc0030"),
+              marginBottom:8
+            }},
+              React.createElement("span",{style:{color:"#556677",fontSize:10}},"Market Regime: "),
+              React.createElement("span",{style:{color:regime.trade_or_wait==="TRADE"?"#00ff88":regime.trade_or_wait==="WAIT"?"#ff4444":"#ffcc00",fontSize:10,fontWeight:"bold"}},(regime.regime||"").replace(/_/g," ")),
+              React.createElement("span",{style:{color:"#556677",fontSize:10,marginLeft:8}},"VIX: "),
+              React.createElement("span",{style:{color:regime.vix>25?"#ff4444":regime.vix>18?"#ffcc00":"#00ff88",fontSize:10,fontWeight:"bold"}},regime.vix||"?"),
+              React.createElement("span",{style:{color:regime.trade_or_wait==="TRADE"?"#00ff88":regime.trade_or_wait==="WAIT"?"#ff4444":"#ffcc00",fontSize:10,fontWeight:"bold",marginLeft:8}},regime.trade_or_wait==="TRADE"?"✅ TRADE":"🚫 WAIT")
+            )}
             <button onClick={getDailyBriefing} disabled={loading} style={S.btn()}>
               {loading?"⟳ Searching macro data...":"▶ GET MACRO MARKET BRIEFING"}
             </button>
@@ -602,8 +756,62 @@ export default function QuantDashboard() {
             <div style={{fontSize:11,color:"#778899",marginBottom:12,lineHeight:1.6}}>
               Scans the entire market for the best options plays today. Runs all 4 agents on each candidate. Only plays with 2/4+ agent votes are shown. Premiums matched to your account size.
             </div>
-            <button onClick={runMarketScan} disabled={scanLoading} style={S.btn()}>
-              {scanLoading?"⟳ SCANNING... (2-3 minutes, running in batches)":"▶ SCAN FOR TODAY'S OPTIONS PLAYS"}
+            {React.createElement("div",{style:{marginBottom:12}},
+              React.createElement("button",{onClick:runRegimeFilter,disabled:regimeLoading,style:Object.assign({},S.btn("#ffcc00","linear-gradient(135deg,#1a1400,#2a2000)"),{marginBottom:8})},
+                regimeLoading?"⟳ ANALYZING MARKET REGIME...":"🔍 CHECK MARKET REGIME FIRST"
+              ),
+              regime&&React.createElement("div",{style:{
+                background:regime.trade_or_wait==="TRADE"?"#001a0d":regime.trade_or_wait==="WAIT"?"#1a0000":"#0a0a0a",
+                borderRadius:6,padding:"12px 14px",
+                border:"2px solid "+(regime.trade_or_wait==="TRADE"?"#00ff8860":regime.trade_or_wait==="WAIT"?"#ff444460":"#ffcc0060")
+              }},
+                React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
+                  React.createElement("span",{style:{color:"#888",fontSize:9,letterSpacing:2}},"MARKET REGIME"),
+                  React.createElement("span",{style:{
+                    color:regime.trade_or_wait==="TRADE"?"#00ff88":regime.trade_or_wait==="WAIT"?"#ff4444":"#ffcc00",
+                    fontSize:16,fontWeight:"bold"
+                  }},
+                    regime.trade_or_wait==="TRADE"?"✅ CONDITIONS FAVORABLE":
+                    regime.trade_or_wait==="WAIT"?"🚫 WAIT — BAD CONDITIONS":"⚠️ CAUTION"
+                  )
+                ),
+                React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:10}},
+                  React.createElement("div",{style:{background:"#ffffff08",borderRadius:4,padding:"6px 8px",textAlign:"center"}},
+                    React.createElement("div",{style:{color:"#555",fontSize:9,marginBottom:2}},"REGIME"),
+                    React.createElement("div",{style:{color:"#aa88ff",fontSize:11,fontWeight:"bold"}},(regime.regime||"?").replace(/_/g," "))
+                  ),
+                  React.createElement("div",{style:{background:"#ffffff08",borderRadius:4,padding:"6px 8px",textAlign:"center"}},
+                    React.createElement("div",{style:{color:"#555",fontSize:9,marginBottom:2}},"VIX"),
+                    React.createElement("div",{style:{
+                      color:regime.vix>25?"#ff4444":regime.vix>18?"#ffcc00":"#00ff88",
+                      fontSize:11,fontWeight:"bold"
+                    }},regime.vix||"?",React.createElement("span",{style:{fontSize:9,marginLeft:4}},regime.vix_direction||""))
+                  ),
+                  React.createElement("div",{style:{background:"#ffffff08",borderRadius:4,padding:"6px 8px",textAlign:"center"}},
+                    React.createElement("div",{style:{color:"#555",fontSize:9,marginBottom:2}},"BIAS"),
+                    React.createElement("div",{style:{
+                      color:regime.bias==="CALLS"?"#00ff88":regime.bias==="PUTS"?"#ff4444":"#ffcc00",
+                      fontSize:11,fontWeight:"bold"
+                    }},regime.bias||"NEUTRAL")
+                  )
+                ),
+                React.createElement("div",{style:{color:"#cccccc",fontSize:11,lineHeight:1.6,marginBottom:6}},regime.regime_summary),
+                regime.best_strategy&&React.createElement("div",{style:{background:"#ffffff06",borderRadius:3,padding:"6px 8px",marginBottom:4}},
+                  React.createElement("span",{style:{color:"#00ff88",fontSize:9,letterSpacing:1}},"BEST STRATEGY: "),
+                  React.createElement("span",{style:{color:"#aaaaaa",fontSize:10}},regime.best_strategy)
+                ),
+                regime.avoid&&React.createElement("div",{style:{background:"#ffffff06",borderRadius:3,padding:"6px 8px",marginBottom:4}},
+                  React.createElement("span",{style:{color:"#ff4444",fontSize:9,letterSpacing:1}},"AVOID: "),
+                  React.createElement("span",{style:{color:"#aaaaaa",fontSize:10}},regime.avoid)
+                ),
+                regime.trade_or_wait==="WAIT"&&regime.wait_reason&&React.createElement("div",{style:{background:"#1a0000",borderRadius:3,padding:"6px 8px",border:"1px solid #ff444430"}},
+                  React.createElement("span",{style:{color:"#ff4444",fontSize:10,fontWeight:"bold"}},"WHY WAIT: "),
+                  React.createElement("span",{style:{color:"#ff8888",fontSize:10}},regime.wait_reason)
+                )
+              )
+            )}
+            <button onClick={runMarketScan} disabled={scanLoading||(regime&&regime.trade_or_wait==="WAIT")} style={Object.assign({},S.btn(),(regime&&regime.trade_or_wait==="WAIT")?{opacity:0.4,cursor:"not-allowed"}:{})}>
+              {scanLoading?"⟳ SCANNING... (2-3 minutes, running in batches)":regime&&regime.trade_or_wait==="WAIT"?"🚫 SCAN BLOCKED — BAD MARKET CONDITIONS":"▶ SCAN FOR TODAY'S OPTIONS PLAYS"}
             </button>
             {scanStatus&&React.createElement("div",{style:{marginTop:8,marginBottom:8,padding:"8px 12px",background:"#0a0e18",borderRadius:4,border:"1px solid #1a1a2a",color:scanLoading?"#ffcc00":"#aa88ff",fontSize:11,letterSpacing:1}},scanStatus)}
             {scanResults.length>0&&(
