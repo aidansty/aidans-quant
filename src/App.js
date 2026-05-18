@@ -114,15 +114,15 @@ const REGIME_PROMPT = function(liveStr) {
     + "EVENT_DRIVEN - major catalyst coming within 3 days, event plays only\n\n"
     + "Current market prices for context: "+liveStr+"\n\n"
     + "Respond in pure JSON only:\n"
-    + "{"regime":"TRENDING_BULL","vix":18.5,"vix_direction":"falling","
-    + ""spy_trend":"above 20MA and 50MA","breadth":"65% of stocks advancing","
-    + ""options_environment":"FAVORABLE","bias":"CALLS","
-    + ""best_strategy":"Momentum + Catalyst plays. Buy ATM calls on strong stocks with upcoming catalysts.","
-    + ""avoid":"Avoid buying puts unless clear breakdown signal.","
-    + ""sizing_modifier":1.0,"
-    + ""regime_summary":"Market is in a clean uptrend with falling volatility. Best week to buy calls on momentum stocks.","
-    + ""trade_or_wait":"TRADE","
-    + ""wait_reason":""}";
+    + "{\"regime\":\"TRENDING_BULL\",\"vix\":18.5,\"vix_direction\":\"falling\","
+    + "\"spy_trend\":\"above 20MA and 50MA\",\"breadth\":\"65% of stocks advancing\","
+    + "\"options_environment\":\"FAVORABLE\",\"bias\":\"CALLS\","
+    + "\"best_strategy\":\"Momentum + Catalyst plays. Buy ATM calls on strong stocks with upcoming catalysts.\","
+    + "\"avoid\":\"Avoid buying puts unless clear breakdown signal.\","
+    + "\"sizing_modifier\":1.0,"
+    + "\"regime_summary\":\"Market is in a clean uptrend with falling volatility. Best week to buy calls on momentum stocks.\","
+    + "\"trade_or_wait\":\"TRADE\","
+    + "\"wait_reason\":\"\"}";
 };
 
 const CHAT_SYSTEM = function(cash, positions) {
