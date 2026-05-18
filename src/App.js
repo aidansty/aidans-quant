@@ -3,9 +3,10 @@ import React, { useState, useEffect } from "react";
 
 const STARTING_CASH = 250;
 
-const WOLF_PROMPT = function(sym) {
+const WOLF_PROMPT = function(sym, regimeCtx) {
+  var regimeNote = regimeCtx ? "\n\nCURRENT MARKET REGIME: "+regimeCtx+"\nADJUST YOUR ANALYSIS: In bad conditions (CHOPPY_NEUTRAL, HIGH_VOLATILITY, TRENDING_BEAR) be MORE conservative. Only vote BUY if fundamentals are exceptionally strong. Lower your conviction score by 0.1-0.2. Recommend smaller position sizes and tighter stops." : "";
   return "You are Agent Wolf - a Warren Buffett-style fundamental analyst. Analyze "+sym+" fundamentals to determine if they support a SHORT-TERM OPTIONS PLAY (1-5 days).\n"
-    + "Search for: P/E ratio, revenue growth, earnings history, profit margins, debt, free cash flow, upcoming earnings date.\n"
+    + "Search for: P/E ratio, revenue growth, earnings history, profit margins, debt, free cash flow, upcoming earnings date."+regimeNote+"\n"
     + "Your job: are the fundamentals strong enough to justify buying a call or put option on "+sym+" right now?\n"
     + "Respond in pure JSON only:\n"
     + "{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":850,\"stop\":695,"
@@ -30,9 +31,10 @@ const COHEN_PROMPT = function(sym, price) {
     + "\"theta_daily\":\"$0.08\",\"days_to_expiry\":4}";
 };
 
-const DALIO_PROMPT = function(sym, price) {
+const DALIO_PROMPT = function(sym, price, regimeCtx) {
+  var regimeNote = regimeCtx ? "\n\nCURRENT MARKET REGIME: "+regimeCtx+"\nADJUST YOUR ANALYSIS: If regime is CHOPPY_NEUTRAL or HIGH_VOLATILITY, require 5x+ unusual options volume (not just 3x) before voting BUY. Lower conviction by 0.15. In TRENDING_BEAR only vote BUY on PUT plays. Flag if premiums are expensive due to elevated IV." : "";
   return "You are Agent Dalio - an institutional options flow specialist. You track where big money is placing options bets right now.\n"
-    + "Current price data for "+sym+": "+price+"\n\n"
+    + "Current price data for "+sym+": "+price+regimeNote+"\n\n"
     + "Search for: unusual options activity on "+sym+" last 48 hours, sector rotation flows, institutional positioning, relative strength vs SPY.\n"
     + "Key question: Are institutions placing big call or put bets on "+sym+" right now? Follow the smart money.\n"
     + "Respond in pure JSON only:\n"
@@ -43,9 +45,10 @@ const DALIO_PROMPT = function(sym, price) {
     + "\"option_type\":\"CALL\",\"option_strike\":755,\"option_expiry\":\"3-5 days\",\"option_premium_est\":\"$2.50-$4.00\"}";
 };
 
-const ACKMAN_PROMPT = function(sym) {
+const ACKMAN_PROMPT = function(sym, regimeCtx) {
+  var regimeNote = regimeCtx ? "\n\nCURRENT MARKET REGIME: "+regimeCtx+"\nADJUST YOUR ANALYSIS: In bad market conditions, insider buying matters more than usual as a confirmation signal. Only vote BUY if there is clear recent insider buying within last 30 days. In bad conditions, if no insider buying exists, default to HOLD not BUY." : "";
   return "You are Agent Ackman - an activist investor. You track insider transactions and fundamental quality for OPTIONS PLAYS.\n"
-    + "Search for: "+sym+" SEC Form 4 insider filings last 90 days, CEO/CFO/Director buying or selling.\n"
+    + "Search for: "+sym+" SEC Form 4 insider filings last 90 days, CEO/CFO/Director buying or selling."+regimeNote+"\n"
     + "Key question: Is insider activity bullish or bearish enough to justify an options play right now?\n"
     + "Respond in pure JSON only:\n"
     + "{\"direction\":\"BUY\",\"conviction\":0.85,\"entry\":750,\"target\":900,\"stop\":690,"
@@ -74,11 +77,12 @@ const BRIEFING_PROMPT = function() {
     + "RULES: Web search first. Specific numbers and dates. No stock picks. Pure macro context only.";
 };
 
-const SCANNER_CANDIDATES_PROMPT = function(liveStr) {
+const SCANNER_CANDIDATES_PROMPT = function(liveStr, regimeCtx) {
   var today = new Date().toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+  var regimeNote = regimeCtx ? "\n\nCURRENT MARKET REGIME: "+regimeCtx+"\nADJUST YOUR CANDIDATE SELECTION BASED ON THIS REGIME. In bad conditions (CHOPPY_NEUTRAL, HIGH_VOLATILITY, TRENDING_BEAR) only return the absolute highest conviction setups with the clearest catalysts and most liquid options. Reduce to 4 candidates instead of 6 if conditions are poor. Prioritize defensive or counter-trend plays if regime is bearish." : "";
   return "You are the Head Quant at an asymmetric AI hedge fund focused on OPTIONS TRADING. Today: "+today+".\n\n"
-    + "Search the market RIGHT NOW and identify the 6 best stocks for SHORT-TERM OPTIONS PLAYS (1-5 days).\n\n"
-    + "Current market prices: "+liveStr+"\n\n"
+    + "Search the market RIGHT NOW and identify the best stocks for SHORT-TERM OPTIONS PLAYS (1-5 days).\n\n"
+    + "Current market prices: "+liveStr+regimeNote+"\n\n"
     + "Requirements for each candidate:\n"
     + "- Must have a clear catalyst within 1-7 days (earnings, FDA, Fed, CPI, product launch)\n"
     + "- Must have liquid options (high open interest, tight bid/ask spread)\n"
@@ -260,7 +264,7 @@ export default function QuantDashboard() {
     setLoading(false);
   }
 
-  function buildCommitteeResult(symbol,results){
+  function buildCommitteeResult(symbol,results,regimeCtx){
     var names=["Wolf (Fundamentals)","Cohen (Price Action)","Dalio (Options Flow)","Ackman (Insider)"];
     var votes={};
     for(var i=0;i<4;i++){
@@ -332,12 +336,21 @@ export default function QuantDashboard() {
     var bidAskSpread=cohenV.bid_ask_spread||null;
     var liquidityOk=cohenV.liquidity_ok!==false;
     var daysToExpiry=cohenV.days_to_expiry||avgH;
-    // Dynamic position sizing based on conviction + liquidity
+    // Dynamic position sizing based on conviction + liquidity + regime
     var maxRisk=50; // default low
     if(buys>=4||sells>=4) maxRisk=150; // 4/4 agents = higher size
     else if(buys>=3||sells>=3) maxRisk=100; // 3/4 agents
     else if(buys>=2||sells>=2) maxRisk=75; // 2/4 minimum
     if(!liquidityOk) maxRisk=Math.min(maxRisk,50); // cut size if illiquid
+    // Regime-based risk adjustment
+    var regimeCaution="";
+    if(regimeCtx){
+      if(regimeCtx.indexOf("CHOPPY_NEUTRAL")>=0){ maxRisk=Math.round(maxRisk*0.5); regimeCaution="⚠️ CHOPPY MARKET: Position size cut 50%. Theta decay risk is high in sideways conditions."; }
+      else if(regimeCtx.indexOf("HIGH_VOLATILITY")>=0){ maxRisk=Math.round(maxRisk*0.5); regimeCaution="⚠️ HIGH VOLATILITY: Position size cut 50%. Premiums are expensive. Only take highest conviction plays."; }
+      else if(regimeCtx.indexOf("TRENDING_BEAR")>=0){ maxRisk=Math.round(maxRisk*0.6); regimeCaution="⚠️ BEAR MARKET: Position size cut 40%. Prefer put plays over calls. Be very selective."; }
+      else if(regimeCtx.indexOf("TRENDING_BULL")>=0){ regimeCaution="✅ BULL MARKET: Normal sizing. Conditions favor momentum plays and calls."; }
+      else if(regimeCtx.indexOf("EVENT_DRIVEN")>=0){ regimeCaution="📅 EVENT DRIVEN: Focus only on catalyst plays. Size normally but exit before/after the event."; }
+    }
     // Theta decay warning
     var thetaWarning=null;
     if(daysToExpiry<=2) thetaWarning="HIGH THETA RISK - "+daysToExpiry+" days left, decay accelerating fast";
@@ -353,19 +366,21 @@ export default function QuantDashboard() {
       callCount:callC,putCount:putC,avgHorizon:avgH,tradeTypeDecision:ttd,tradeTypeReason:ttr,
       passesCommittee:buys>=2||sells>=2,
       delta:delta,theta:theta,openInterest:openInterest,bidAskSpread:bidAskSpread,liquidityOk:liquidityOk,
-      daysToExpiry:daysToExpiry,maxRisk:maxRisk,thetaWarning:thetaWarning,takeProfit:takeProfit,stopLoss:stopLoss};
+      daysToExpiry:daysToExpiry,maxRisk:maxRisk,thetaWarning:thetaWarning,takeProfit:takeProfit,stopLoss:stopLoss,
+      regimeCaution:regimeCaution||""};
   }
 
   async function runAgentsOnSymbol(symbol){
     var live=livePrices[symbol]||{};
     var priceStr="Price:$"+(live.price?live.price.toFixed(2):"?")+", Change:"+(live.change?live.change.toFixed(2):"0")+"%, High:$"+(live.high?live.high.toFixed(2):"?")+", Low:$"+(live.low?live.low.toFixed(2):"?")+", Vol:"+(live.volume||0).toLocaleString();
+    var regimeCtx=regime?("Regime: "+(regime.regime||"UNKNOWN")+", VIX: "+(regime.vix||"?")+", Bias: "+(regime.bias||"NEUTRAL")+", Conditions: "+(regime.trade_or_wait||"UNKNOWN")+", "+(regime.regime_summary||"")):null;
     var results=await Promise.all([
-      callClaude(WOLF_PROMPT(symbol),[{role:"user",content:"Analyze "+symbol+" fundamentals for options play. JSON only."}]),
+      callClaude(WOLF_PROMPT(symbol,regimeCtx),[{role:"user",content:"Analyze "+symbol+" fundamentals for options play. JSON only."}]),
       callClaude(COHEN_PROMPT(symbol,priceStr),[{role:"user",content:"Analyze technicals for "+symbol+" options timing: "+priceStr+". JSON only."}],false),
-      callClaude(DALIO_PROMPT(symbol,priceStr),[{role:"user",content:"Search unusual options activity and sector flow for "+symbol+". JSON only."}]),
-      callClaude(ACKMAN_PROMPT(symbol),[{role:"user",content:"Search SEC Form 4 filings for "+symbol+". JSON only."}]),
+      callClaude(DALIO_PROMPT(symbol,priceStr,regimeCtx),[{role:"user",content:"Search unusual options activity and sector flow for "+symbol+". JSON only."}]),
+      callClaude(ACKMAN_PROMPT(symbol,regimeCtx),[{role:"user",content:"Search SEC Form 4 filings for "+symbol+". JSON only."}]),
     ]);
-    return buildCommitteeResult(symbol,results);
+    return buildCommitteeResult(symbol,results,regimeCtx);
   }
 
   async function runRegimeFilter(){
@@ -386,7 +401,8 @@ export default function QuantDashboard() {
     setScanLoading(true); setScanResults([]); setScanStatus("Searching market for best options candidates...");
     try{
       var liveStr=Object.entries(livePrices).map(function(e){ return e[0]+":$"+(e[1].price?e[1].price.toFixed(2):"?"); }).join(", ");
-      var candTxt=await callClaude(SCANNER_CANDIDATES_PROMPT(liveStr),[{role:"user",content:"Search market now for best options plays. Today: "+new Date().toLocaleDateString()+". Return 6 candidates as pure JSON only."}]);
+      var regimeCtx=regime?("Regime: "+(regime.regime||"UNKNOWN")+", VIX: "+(regime.vix||"?")+", Bias: "+(regime.bias||"NEUTRAL")+", Conditions: "+(regime.trade_or_wait||"UNKNOWN")+", "+(regime.regime_summary||"")):null;
+      var candTxt=await callClaude(SCANNER_CANDIDATES_PROMPT(liveStr,regimeCtx),[{role:"user",content:"Search market now for best options plays. Today: "+new Date().toLocaleDateString()+". Return candidates as pure JSON only."}]);
       var clean=candTxt.split("\u0060\u0060\u0060json").join("").split("\u0060\u0060\u0060").join("").trim();
       var s=clean.indexOf("{"),e=clean.lastIndexOf("}");
       var parsed=JSON.parse(clean.substring(s,e+1));
@@ -561,6 +577,13 @@ export default function QuantDashboard() {
               C.buys>=3||C.sells>=3?"3/4 agents agree — medium sizing":
               "2/4 agents agree — minimum sizing, be cautious"
             )
+          ),
+          C.regimeCaution&&React.createElement("div",{style:{
+            background:C.regimeCaution.indexOf("✅")>=0?"#001a0d":C.regimeCaution.indexOf("📅")>=0?"#0a0820":"#1a0a00",
+            borderRadius:4,padding:"7px 10px",marginBottom:8,
+            border:"1px solid "+(C.regimeCaution.indexOf("✅")>=0?"#00ff8830":C.regimeCaution.indexOf("📅")>=0?"#aa88ff30":"#ff884430")
+          }},
+            React.createElement("span",{style:{color:C.regimeCaution.indexOf("✅")>=0?"#00ff88":C.regimeCaution.indexOf("📅")>=0?"#aa88ff":"#ff8844",fontSize:10,fontWeight:"bold"}},C.regimeCaution)
           ),
           C.thetaWarning&&React.createElement("div",{style:{background:"#1a0800",borderRadius:4,padding:"7px 10px",marginBottom:8,border:"1px solid #ff884430"}},
             React.createElement("span",{style:{color:"#ff8844",fontSize:10,fontWeight:"bold"}},"⏰ "+C.thetaWarning)
@@ -789,8 +812,8 @@ export default function QuantDashboard() {
                 )
               )
             )}
-            <button onClick={runMarketScan} disabled={scanLoading||(regime&&regime.trade_or_wait==="WAIT")} style={Object.assign({},S.btn(),(regime&&regime.trade_or_wait==="WAIT")?{opacity:0.4,cursor:"not-allowed"}:{})}>
-              {scanLoading?"⟳ SCANNING... (2-3 minutes, running in batches)":regime&&regime.trade_or_wait==="WAIT"?"🚫 SCAN BLOCKED — BAD MARKET CONDITIONS":"▶ SCAN FOR TODAY'S OPTIONS PLAYS"}
+            <button onClick={runMarketScan} disabled={scanLoading} style={S.btn()}>
+              {scanLoading?"⟳ SCANNING... (2-3 minutes, running in batches)":"▶ SCAN FOR TODAY'S OPTIONS PLAYS"+(regime&&regime.trade_or_wait==="WAIT"?" ⚠️ (CAUTION MODE)":"")}
             </button>
             {scanStatus&&React.createElement("div",{style:{marginTop:8,marginBottom:8,padding:"8px 12px",background:"#0a0e18",borderRadius:4,border:"1px solid #1a1a2a",color:scanLoading?"#ffcc00":"#aa88ff",fontSize:11,letterSpacing:1}},scanStatus)}
             {scanResults.length>0&&(
