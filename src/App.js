@@ -98,43 +98,22 @@ const SCANNER_CANDIDATES_PROMPT = function(liveStr) {
 
 const REGIME_PROMPT = function(liveStr) {
   var today = new Date().toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
-  return "You are a Market Regime Detection specialist. Today: "+today+".
-
-"
-    + "Your ONLY job is to determine the current market regime and whether conditions favor buying options RIGHT NOW.
-
-"
-    + "Search for current data on:
-"
-    + "1. VIX level and direction - is fear rising or falling?
-"
-    + "2. SPY trend - above or below 20-day and 50-day moving averages?
-"
-    + "3. Market breadth - are most stocks rising or falling today?
-"
-    + "4. Recent realized volatility - has the market been choppy or trending?
-"
-    + "5. Macro risk events in next 7 days - Fed, CPI, earnings season?
-
-"
-    + "Classify the current regime as ONE of these:
-"
-    + "TRENDING_BULL - market in clear uptrend, momentum plays work, buy calls
-"
-    + "TRENDING_BEAR - market in clear downtrend, buy puts, avoid calls
-"
-    + "CHOPPY_NEUTRAL - market going sideways, options decay fast, avoid buying premium
-"
-    + "HIGH_VOLATILITY - VIX elevated above 25, premiums expensive, size down heavily
-"
-    + "EVENT_DRIVEN - major catalyst coming within 3 days, event plays only
-
-"
-    + "Current market prices for context: "+liveStr+"
-
-"
-    + "Respond in pure JSON only:
-"
+  return "You are a Market Regime Detection specialist. Today: "+today+".\n\n"
+    + "Your ONLY job is to determine the current market regime and whether conditions favor buying options RIGHT NOW.\n\n"
+    + "Search for current data on:\n"
+    + "1. VIX level and direction - is fear rising or falling?\n"
+    + "2. SPY trend - above or below 20-day and 50-day moving averages?\n"
+    + "3. Market breadth - are most stocks rising or falling today?\n"
+    + "4. Recent realized volatility - has the market been choppy or trending?\n"
+    + "5. Macro risk events in next 7 days - Fed, CPI, earnings season?\n\n"
+    + "Classify the current regime as ONE of these:\n"
+    + "TRENDING_BULL - market in clear uptrend, momentum plays work, buy calls\n"
+    + "TRENDING_BEAR - market in clear downtrend, buy puts, avoid calls\n"
+    + "CHOPPY_NEUTRAL - market going sideways, options decay fast, avoid buying premium\n"
+    + "HIGH_VOLATILITY - VIX elevated above 25, premiums expensive, size down heavily\n"
+    + "EVENT_DRIVEN - major catalyst coming within 3 days, event plays only\n\n"
+    + "Current market prices for context: "+liveStr+"\n\n"
+    + "Respond in pure JSON only:\n"
     + "{"regime":"TRENDING_BULL","vix":18.5,"vix_direction":"falling","
     + ""spy_trend":"above 20MA and 50MA","breadth":"65% of stocks advancing","
     + ""options_environment":"FAVORABLE","bias":"CALLS","
