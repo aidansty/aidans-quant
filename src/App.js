@@ -398,7 +398,7 @@ export default function QuantDashboard() {
   const [unusualTicker,    setUnusualTicker]    = useState("");
   const [optionsInputSaved, setOptionsInputSaved] = useState(false);
 
-  useEffect(function(){ loadData().catch(function(e){ console.error('loadData failed:',e); }); fetchLivePrices(); var iv=setInterval(fetchLivePrices,60000); return function(){ clearInterval(iv); }; },[]);
+  useEffect(function(){ loadData(); fetchLivePrices(); var iv=setInterval(fetchLivePrices,60000); return function(){ clearInterval(iv); }; },[]);
   useEffect(function(){ runRiskEngine(); },[optionsPositions, cashBalance]);
 
   function getDaysUntilExpiry(expiryStr){
@@ -433,49 +433,43 @@ export default function QuantDashboard() {
     }catch(e){ console.error("Price fetch failed:",e); }
   }
 
-  async function loadData(){
-    try{
-      // Load from database first — timeout after 5 seconds to avoid hanging
-      var controller = new AbortController();
-      var timeout = setTimeout(function(){ controller.abort(); }, 5000);
-      var r = await fetch("/api/db", {signal: controller.signal});
-      clearTimeout(timeout);
-      var res = await r.json();
-      if(res.success && res.data){
-        var d = res.data;
-        if(d.op3) setOptionsPositions(JSON.parse(d.op3));
-        if(d.tr3) setTrades(JSON.parse(d.tr3));
-        if(d.ca3) setCashBalance(parseFloat(d.ca3));
-        if(d.ch3) setChatHistory(JSON.parse(d.ch3));
-        if(d.sr3) setScanResults(JSON.parse(d.sr3));
-        if(d.rg3) setRegime(JSON.parse(d.rg3));
-        if(d.sj3) setSessionJournal(JSON.parse(d.sj3));
+  function loadData(){
+    function applyData(d){
+      try{ if(d.op3) setOptionsPositions(JSON.parse(d.op3)); }catch(e){}
+      try{ if(d.tr3) setTrades(JSON.parse(d.tr3)); }catch(e){}
+      try{ if(d.ca3) setCashBalance(parseFloat(d.ca3)); }catch(e){}
+      try{ if(d.ch3) setChatHistory(JSON.parse(d.ch3)); }catch(e){}
+      try{ if(d.sr3) setScanResults(JSON.parse(d.sr3)); }catch(e){}
+      try{ if(d.rg3) setRegime(JSON.parse(d.rg3)); }catch(e){}
+      try{ if(d.sj3) setSessionJournal(JSON.parse(d.sj3)); }catch(e){}
+      try{
         if(d.oi3){
           var oiParsed=JSON.parse(d.oi3);
           if(oiParsed.ivRank) setSpyIVRank(oiParsed.ivRank);
           if(oiParsed.pcRatio) setSpyPCRatio(oiParsed.pcRatio);
           if(oiParsed.unusual) setUnusualTicker(oiParsed.unusual);
         }
-        return;
-      }
-    }catch(e){ console.warn("DB load failed, falling back to localStorage:", e.message); }
-    // Fallback to localStorage if database unavailable
-    try{
-      var op=localStorage.getItem("op3"); if(op) setOptionsPositions(JSON.parse(op));
-      var t=localStorage.getItem("tr3"); if(t) setTrades(JSON.parse(t));
-      var c=localStorage.getItem("ca3"); if(c) setCashBalance(parseFloat(c));
-      var ch=localStorage.getItem("ch3"); if(ch) setChatHistory(JSON.parse(ch));
-      var sr=localStorage.getItem("sr3"); if(sr) setScanResults(JSON.parse(sr));
-      var rg=localStorage.getItem("rg3"); if(rg) setRegime(JSON.parse(rg));
-      var sj=localStorage.getItem("sj3"); if(sj) setSessionJournal(JSON.parse(sj));
-      var oi=localStorage.getItem("oi3");
-      if(oi){
-        var oiParsed=JSON.parse(oi);
-        if(oiParsed.ivRank) setSpyIVRank(oiParsed.ivRank);
-        if(oiParsed.pcRatio) setSpyPCRatio(oiParsed.pcRatio);
-        if(oiParsed.unusual) setUnusualTicker(oiParsed.unusual);
-      }
-    }catch(e){}
+      }catch(e){}
+    }
+    function loadFromLocalStorage(){
+      var d={};
+      try{ d.op3=localStorage.getItem("op3"); }catch(e){}
+      try{ d.tr3=localStorage.getItem("tr3"); }catch(e){}
+      try{ d.ca3=localStorage.getItem("ca3"); }catch(e){}
+      try{ d.ch3=localStorage.getItem("ch3"); }catch(e){}
+      try{ d.sr3=localStorage.getItem("sr3"); }catch(e){}
+      try{ d.rg3=localStorage.getItem("rg3"); }catch(e){}
+      try{ d.sj3=localStorage.getItem("sj3"); }catch(e){}
+      try{ d.oi3=localStorage.getItem("oi3"); }catch(e){}
+      applyData(d);
+    }
+    fetch("/api/db")
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if(res && res.success && res.data){ applyData(res.data); }
+        else{ loadFromLocalStorage(); }
+      })
+      .catch(function(){ loadFromLocalStorage(); });
   }
 
   function saveToDb(key, value){
