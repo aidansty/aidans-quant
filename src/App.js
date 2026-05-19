@@ -433,7 +433,30 @@ export default function QuantDashboard() {
     }catch(e){ console.error("Price fetch failed:",e); }
   }
 
-  function loadData(){
+  async function loadData(){
+    try{
+      // Load from database first
+      var r = await fetch("/api/db");
+      var res = await r.json();
+      if(res.success && res.data){
+        var d = res.data;
+        if(d.op3) setOptionsPositions(JSON.parse(d.op3));
+        if(d.tr3) setTrades(JSON.parse(d.tr3));
+        if(d.ca3) setCashBalance(parseFloat(d.ca3));
+        if(d.ch3) setChatHistory(JSON.parse(d.ch3));
+        if(d.sr3) setScanResults(JSON.parse(d.sr3));
+        if(d.rg3) setRegime(JSON.parse(d.rg3));
+        if(d.sj3) setSessionJournal(JSON.parse(d.sj3));
+        if(d.oi3){
+          var oiParsed=JSON.parse(d.oi3);
+          if(oiParsed.ivRank) setSpyIVRank(oiParsed.ivRank);
+          if(oiParsed.pcRatio) setSpyPCRatio(oiParsed.pcRatio);
+          if(oiParsed.unusual) setUnusualTicker(oiParsed.unusual);
+        }
+        return;
+      }
+    }catch(e){ console.warn("DB load failed, falling back to localStorage:", e.message); }
+    // Fallback to localStorage if database unavailable
     try{
       var op=localStorage.getItem("op3"); if(op) setOptionsPositions(JSON.parse(op));
       var t=localStorage.getItem("tr3"); if(t) setTrades(JSON.parse(t));
@@ -452,24 +475,31 @@ export default function QuantDashboard() {
     }catch(e){}
   }
 
+  function saveToDb(key, value){
+    var strVal = typeof value === "string" ? value : JSON.stringify(value);
+    fetch("/api/db", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({key:key, value:strVal})
+    }).catch(function(e){ console.warn("DB save failed for "+key+":", e.message); });
+    // Also save to localStorage as backup
+    try{ localStorage.setItem(key, strVal); }catch(e){}
+  }
+
   function save(nop,nt,nc,nch){
-    try{
-      var opToSave=nop!==null?(nop!=null?nop:optionsPositions):optionsPositions;
-      var trToSave=nt!==null?(nt!=null?nt:trades):trades;
-      var caToSave=nc!==null?(nc!=null?nc:cashBalance):cashBalance;
-      localStorage.setItem("op3",JSON.stringify(opToSave));
-      localStorage.setItem("tr3",JSON.stringify(trToSave));
-      localStorage.setItem("ca3",String(caToSave));
-      if(nch!==null) localStorage.setItem("ch3",JSON.stringify(nch!=null?nch:chatHistory));
-    }catch(e){ console.error("Save failed:",e); }
+    var opToSave=nop!==null?(nop!=null?nop:optionsPositions):optionsPositions;
+    var trToSave=nt!==null?(nt!=null?nt:trades):trades;
+    var caToSave=nc!==null?(nc!=null?nc:cashBalance):cashBalance;
+    saveToDb("op3", JSON.stringify(opToSave));
+    saveToDb("tr3", JSON.stringify(trToSave));
+    saveToDb("ca3", String(caToSave));
+    if(nch!==null) saveToDb("ch3", JSON.stringify(nch!=null?nch:chatHistory));
   }
 
   function saveOptionsInputs(){
-    try{
-      localStorage.setItem("oi3",JSON.stringify({ivRank:spyIVRank,pcRatio:spyPCRatio,unusual:unusualTicker}));
-      setOptionsInputSaved(true);
-      setTimeout(function(){ setOptionsInputSaved(false); },2000);
-    }catch(e){}
+    saveToDb("oi3", JSON.stringify({ivRank:spyIVRank,pcRatio:spyPCRatio,unusual:unusualTicker}));
+    setOptionsInputSaved(true);
+    setTimeout(function(){ setOptionsInputSaved(false); },2000);
   }
 
   function getBriefingSummary(){
@@ -493,7 +523,7 @@ export default function QuantDashboard() {
     var newJournal=[...sessionJournal.filter(function(j){ return j.date!==entry.date; }),entry];
     newJournal.sort(function(a,b){ return new Date(b.date)-new Date(a.date); });
     setSessionJournal(newJournal);
-    try{ localStorage.setItem("sj3",JSON.stringify(newJournal)); }catch(e){}
+    saveToDb("sj3", JSON.stringify(newJournal));
   }
 
   function logSession(){
@@ -517,7 +547,7 @@ export default function QuantDashboard() {
   function deleteJournalEntry(date){
     var newJournal=sessionJournal.filter(function(j){ return j.date!==date; });
     setSessionJournal(newJournal);
-    try{ localStorage.setItem("sj3",JSON.stringify(newJournal)); }catch(e){}
+    saveToDb("sj3", JSON.stringify(newJournal));
   }
 
   async function getDailyBriefing(){
@@ -668,7 +698,7 @@ export default function QuantDashboard() {
       var s=clean.indexOf("{"),e=clean.lastIndexOf("}");
       var parsed=JSON.parse(clean.substring(s,e+1));
       setRegime(parsed);
-      try{ localStorage.setItem("rg3",JSON.stringify(parsed)); }catch(ex){}
+      saveToDb("rg3", JSON.stringify(parsed));
     }catch(err){ setRegime({regime:"UNKNOWN",options_environment:"UNKNOWN",trade_or_wait:"WAIT",regime_summary:"Could not determine regime. Try again.",wait_reason:"Analysis failed - "+err.message}); }
     setRegimeLoading(false);
   }
@@ -702,7 +732,7 @@ export default function QuantDashboard() {
         batchResults.forEach(function(result){
           if(result.passesCommittee){
             approved.push(result);
-            setScanResults(function(prev){ var next=[...prev,result]; try{ localStorage.setItem("sr3",JSON.stringify(next)); }catch(ex){} return next; });
+            setScanResults(function(prev){ var next=[...prev,result]; saveToDb("sr3",JSON.stringify(next)); return next; });
           }
         });
         if(b+2<candidates.length){ setScanStatus("Pausing between batches..."); await new Promise(function(res){ setTimeout(res,3000); }); }
@@ -1338,7 +1368,7 @@ export default function QuantDashboard() {
               React.createElement("input",{placeholder:"Enter cash balance e.g. 250",type:"number",id:"cashInput",style:Object.assign({},S.inp,{flex:1})}),
               React.createElement("button",{onClick:function(){
                 var val=parseFloat(document.getElementById("cashInput").value);
-                if(!isNaN(val)&&val>=0){ setCashBalance(val); try{localStorage.setItem("ca3",String(val));}catch(e){} document.getElementById("cashInput").value=""; }
+                if(!isNaN(val)&&val>=0){ setCashBalance(val); saveToDb("ca3",String(val)); document.getElementById("cashInput").value=""; }
               },style:Object.assign({},S.btn("#4488ff","linear-gradient(135deg,#060e24,#000e44)"),{width:"auto",padding:"0 16px"})},"SET")
             )
           )
