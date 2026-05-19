@@ -123,24 +123,101 @@ const BRIEFING_PROMPT = function() {
     + "RULES: Web search first. Specific numbers and dates. No stock picks. Pure macro context only.";
 };
 
-const SCANNER_CANDIDATES_PROMPT = function(liveStr) {
+const SCANNER_CANDIDATES_PROMPT = function(liveStr, regimeData) {
   var today = new Date().toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+  var regime = regimeData ? (regimeData.regime || "UNKNOWN") : "UNKNOWN";
+  var bias = regimeData ? (regimeData.bias || "NEUTRAL") : "NEUTRAL";
+  var vix = regimeData ? (regimeData.vix || "?") : "?";
+
+  // Build regime-specific hunting instructions
+  var regimeSection = "";
+  var strategySection = "";
+
+  if (regime === "TRENDING_BULL") {
+    regimeSection = "REGIME: TRENDING BULL — Hunt CALL candidates aggressively.\n"
+      + "Look for: stocks in strong uptrends with upcoming bullish catalysts, breaking out above resistance, "
+      + "institutional accumulation, unusual call volume already appearing, sectors with inflows.\n"
+      + "Avoid: stocks near resistance, overextended moves, anything with negative catalyst incoming.\n";
+    strategySection = "CALL HUNTING STRATEGIES (use all 6 candidates for calls):\n"
+      + "1. BREAKOUT+CATALYST - stock breaking above key resistance with event within 7 days\n"
+      + "2. MOMENTUM+EARNINGS - strong trend stock with upcoming earnings expected to beat\n"
+      + "3. UNUSUAL CALL FLOW - stock with 3x+ normal call volume in last 48 hours\n"
+      + "4. SECTOR LEADER - strongest stock in the hottest sector right now\n"
+      + "5. MEAN REVERSION UP - oversold stock bouncing from strong support\n"
+      + "6. EVENT-DRIVEN CALL - Fed, CPI, FDA, product launch within 3 days with bullish setup\n";
+  } else if (regime === "TRENDING_BEAR") {
+    regimeSection = "REGIME: TRENDING BEAR — Hunt PUT candidates aggressively.\n"
+      + "Look for: stocks breaking below key support, sectors under heavy institutional selling, "
+      + "stocks with negative catalysts incoming, weak earnings expected, macro headwinds specific to the company, "
+      + "unusual put volume appearing, stocks failing to hold moving averages.\n"
+      + "Avoid: oversold stocks already down 15%+, any stock with positive catalyst incoming.\n";
+    strategySection = "PUT HUNTING STRATEGIES (use all 6 candidates for puts):\n"
+      + "1. BREAKDOWN+CATALYST - stock breaking below key support with negative event within 7 days\n"
+      + "2. WEAK EARNINGS PLAY - stock expected to miss earnings or cut guidance\n"
+      + "3. UNUSUAL PUT FLOW - stock with 3x+ normal put volume in last 48 hours\n"
+      + "4. SECTOR LAGGARD - weakest stock in the weakest sector right now\n"
+      + "5. MEAN REVERSION DOWN - overbought stock rolling over from resistance\n"
+      + "6. MACRO HEADWIND PLAY - company directly hurt by current macro conditions (oil, rates, Iran)\n";
+  } else if (regime === "HIGH_VOLATILITY") {
+    regimeSection = "REGIME: HIGH VOLATILITY (VIX " + vix + ") — Hunt BINARY EVENT plays only.\n"
+      + "Premiums are expensive. Only trade stocks with a guaranteed binary catalyst within 3 days "
+      + "where the move will be large enough to overcome expensive premium. "
+      + "Both calls and puts are valid — direction depends on the specific setup.\n"
+      + "Avoid: any stock without a hard catalyst, momentum plays, mean reversion plays.\n";
+    strategySection = "HIGH VOLATILITY STRATEGIES (binary events only):\n"
+      + "1. EARNINGS BINARY - stock reporting earnings within 3 days, clear directional lean\n"
+      + "2. FDA DECISION - binary FDA catalyst within 3 days\n"
+      + "3. FED/CPI EVENT - macro event within 2 days with clear market impact\n"
+      + "4. GEOPOLITICAL PLAY - sector directly impacted by current crisis (energy, defense)\n"
+      + "5. TECHNICAL BREAKDOWN - stock at major make-or-break level with hard catalyst\n"
+      + "6. SQUEEZE CANDIDATE - heavily shorted stock with catalyst for short squeeze\n";
+  } else if (regime === "EVENT_DRIVEN") {
+    regimeSection = "REGIME: EVENT DRIVEN — Catalyst plays only, both directions.\n"
+      + "Focus exclusively on stocks with hard catalysts within 3 days. "
+      + "Both calls and puts valid depending on the specific setup and direction of expected move. "
+      + "The catalyst must be real and dated — not vague.\n"
+      + "Avoid: anything without a specific dated catalyst within 3 days.\n";
+    strategySection = "EVENT-DRIVEN STRATEGIES:\n"
+      + "1. EARNINGS PLAY - reporting within 3 days, strong directional lean\n"
+      + "2. FED/CPI/PPI - macro data release within 3 days\n"
+      + "3. FDA CATALYST - drug approval or rejection within 3 days\n"
+      + "4. PRODUCT LAUNCH - major product event within 3 days\n"
+      + "5. LEGAL/REGULATORY - court ruling or regulatory decision within 3 days\n"
+      + "6. ANALYST EVENT - investor day, guidance update within 3 days\n";
+  } else {
+    // CHOPPY_NEUTRAL or UNKNOWN — conservative
+    regimeSection = "REGIME: CHOPPY/NEUTRAL — Be very selective, mean reversion only.\n"
+      + "Market is going sideways. Options decay fast in chop. Only trade stocks with "
+      + "a very clear and imminent catalyst that forces a directional move. "
+      + "Both calls and puts valid. Size down on all plays.\n"
+      + "Avoid: momentum plays, breakout plays, anything dependent on sustained trend.\n";
+    strategySection = "CONSERVATIVE STRATEGIES (choppy market):\n"
+      + "1. EARNINGS BINARY - must report within 2 days, not 7\n"
+      + "2. HARD CATALYST MEAN REVERSION - oversold with dated catalyst within 3 days\n"
+      + "3. SECTOR OUTLIER - one sector moving clearly despite choppy overall market\n"
+      + "4. VOLATILITY COMPRESSION PLAY - stock coiling tight before known catalyst\n"
+      + "5. MACRO EVENT PLAY - Fed or CPI within 2 days only\n"
+      + "6. SQUEEZE SETUP - stock with high short interest and hard catalyst incoming\n";
+  }
+
   return "You are the Head Quant at an asymmetric AI hedge fund focused on OPTIONS TRADING. Today: "+today+".\n\n"
-    + "Search the market RIGHT NOW and identify the 6 best stocks for SHORT-TERM OPTIONS PLAYS (1-5 days).\n\n"
+    + "=== CURRENT MARKET REGIME ===\n"
+    + regimeSection
+    + "=== END REGIME ===\n\n"
+    + "Search the market RIGHT NOW and identify the 6 best stocks for options plays based on this regime.\n\n"
     + "Current market prices: "+liveStr+"\n\n"
-    + "Requirements for each candidate:\n"
-    + "- Must have a clear catalyst within 1-7 days (earnings, FDA, Fed, CPI, product launch)\n"
-    + "- Must have liquid options (high open interest, tight bid/ask spread)\n"
-    + "- Volume above 1M daily (liquid stock = liquid options)\n"
-    + "- Price between $10-$500 (options must be affordable under $300 premium)\n"
-    + "- Clear directional bias (strong move expected up OR down)\n"
-    + "- Max 2 tech stocks\n\n"
-    + "Use these strategies:\n"
-    + "1. MOMENTUM+CATALYST - strong trend + event within 7 days\n"
-    + "2. EVENT-DRIVEN - earnings, Fed, CPI, FDA dates\n"
-    + "3. SENTIMENT+OPTIONS - unusual call/put volume already appearing\n"
-    + "4. MEAN REVERSION - overextended stock due for snapback\n"
-    + "5. RELATIVE STRENGTH - outperforming sector, institutions accumulating\n\n"
+    + "NON-NEGOTIABLE REQUIREMENTS for every candidate:\n"
+    + "- Must have a REAL catalyst with a specific date within 1-7 days\n"
+    + "- Must have liquid options (volume above 500K daily minimum)\n"
+    + "- Price between $10-$500 so options premium stays under $300\n"
+    + "- Premium must NOT already be overpriced relative to expected move\n"
+    + "- Must have realistic path to 50%+ gain on the option contract\n"
+    + "- Max 2 tech stocks across all 6 candidates\n"
+    + "- Diversify across sectors — no more than 2 from same sector\n\n"
+    + strategySection
+    + "\nIMPORTANT: You are hunting for the best RISK/REWARD setups for the option CONTRACT itself — "
+    + "not just stocks that look interesting. The question is always: can this option realistically "
+    + "double within 1-7 days based on a real catalyst?\n\n"
     + "Return ONLY pure JSON:\n"
     + "{\"candidates\":[\"AAPL\",\"XLE\",\"SOFI\",\"META\",\"GLD\",\"AMD\"]}";
 };
@@ -513,10 +590,20 @@ export default function QuantDashboard() {
   }
 
   async function runMarketScan(){
-    setScanLoading(true); setScanResults([]); setScanStatus("Searching market for best options candidates...");
+    setScanLoading(true); setScanResults([]);
+    var regimeName = regime ? (regime.regime||"UNKNOWN").replace(/_/g," ") : "UNKNOWN";
+    var regimeBias = regime ? (regime.bias||"NEUTRAL") : "NEUTRAL";
+    var huntingMsg = regime && regime.trade_or_wait==="WAIT" ? "Scan blocked — bad conditions"
+      : regime && regime.regime==="TRENDING_BEAR" ? "Hunting PUT candidates (bearish regime)..."
+      : regime && regime.regime==="HIGH_VOLATILITY" ? "Hunting binary event plays (high volatility)..."
+      : regime && regime.regime==="EVENT_DRIVEN" ? "Hunting catalyst plays (event driven)..."
+      : regime && regime.regime==="CHOPPY_NEUTRAL" ? "Hunting conservative setups (choppy market)..."
+      : "Hunting CALL candidates (bull regime)...";
+    setScanStatus(huntingMsg);
     try{
       var liveStr=Object.entries(livePrices).map(function(e){ return e[0]+":$"+(e[1].price?e[1].price.toFixed(2):"?"); }).join(", ");
-      var candTxt=await callClaude(SCANNER_CANDIDATES_PROMPT(liveStr),[{role:"user",content:"Search market now for best options plays. Today: "+new Date().toLocaleDateString()+". Return 6 candidates as pure JSON only."}]);
+      var userMsg = "Search market now for best options plays based on current regime: "+regimeName+" (bias: "+regimeBias+"). Today: "+new Date().toLocaleDateString()+". Return 6 candidates as pure JSON only.";
+      var candTxt=await callClaude(SCANNER_CANDIDATES_PROMPT(liveStr, regime),[{role:"user",content:userMsg}]);
       var clean=candTxt.split("\u0060\u0060\u0060json").join("").split("\u0060\u0060\u0060").join("").trim();
       var s=clean.indexOf("{"),e=clean.lastIndexOf("}");
       var parsed=JSON.parse(clean.substring(s,e+1));
@@ -1007,7 +1094,7 @@ export default function QuantDashboard() {
             )
           ),
           React.createElement("button",{onClick:runMarketScan,disabled:scanLoading||(regime&&regime.trade_or_wait==="WAIT"),style:Object.assign({},S.btn(),(regime&&regime.trade_or_wait==="WAIT")?{opacity:0.4,cursor:"not-allowed"}:{})},
-            scanLoading?"SCANNING... (2-3 minutes, running in batches)":regime&&regime.trade_or_wait==="WAIT"?"SCAN BLOCKED — BAD MARKET CONDITIONS":"SCAN FOR TODAY'S OPTIONS PLAYS"
+            scanLoading?"SCANNING... (2-3 minutes, running in batches)":regime&&regime.trade_or_wait==="WAIT"?"SCAN BLOCKED — BAD MARKET CONDITIONS":regime&&regime.regime==="TRENDING_BEAR"?"SCAN — HUNTING PUTS (BEARISH REGIME)":regime&&regime.regime==="HIGH_VOLATILITY"?"SCAN — BINARY EVENT PLAYS ONLY":regime&&regime.regime==="EVENT_DRIVEN"?"SCAN — CATALYST PLAYS ONLY":regime&&regime.regime==="CHOPPY_NEUTRAL"?"SCAN — CONSERVATIVE MODE":"SCAN — HUNTING CALLS (BULL REGIME)"
           ),
           scanStatus&&React.createElement("div",{style:{marginTop:8,marginBottom:8,padding:"8px 12px",background:"#0a0e18",borderRadius:4,border:"1px solid #1a1a2a",color:scanLoading?"#ffcc00":"#aa88ff",fontSize:11,letterSpacing:1}},scanStatus),
           scanResults.length>0&&React.createElement("div",{style:{marginTop:12}},
