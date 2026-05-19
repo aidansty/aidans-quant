@@ -123,11 +123,52 @@ const BRIEFING_PROMPT = function() {
     + "RULES: Web search first. Specific numbers and dates. No stock picks. Pure macro context only.";
 };
 
-const SCANNER_CANDIDATES_PROMPT = function(liveStr, regimeData) {
+const SCANNER_CANDIDATES_PROMPT = function(liveStr, regimeData, accountCash) {
   var today = new Date().toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
   var regime = regimeData ? (regimeData.regime || "UNKNOWN") : "UNKNOWN";
   var bias = regimeData ? (regimeData.bias || "NEUTRAL") : "NEUTRAL";
   var vix = regimeData ? (regimeData.vix || "?") : "?";
+  var cash = accountCash || 250;
+
+  // Dynamic budget tier — scales automatically as account grows
+  var maxPremium, maxStockPrice, budgetLabel, budgetNote, stockExamples;
+  if (cash < 300) {
+    maxPremium = 1.00;
+    maxStockPrice = 80;
+    budgetLabel = "MICRO ($250)";
+    budgetNote = "Account is under $300. Options must cost under $100 per contract total. "
+      + "Focus exclusively on low-priced stocks where ATM options are $0.30-$1.00 ask. "
+      + "Avoid any stock above $80 — options will be too expensive.";
+    stockExamples = "Examples of affordable stocks at this size: SOFI, PLTR, BAC, F, SNAP, XLE, SLV, HOOD, MARA, RIVN, NIO, VALE";
+  } else if (cash < 500) {
+    maxPremium = 1.50;
+    maxStockPrice = 120;
+    budgetLabel = "SMALL ($300-500)";
+    budgetNote = "Account is $300-500. Options must cost under $150 per contract total. "
+      + "Stocks under $120 are the sweet spot. ATM options should be $0.50-$1.50 ask.";
+    stockExamples = "Examples: SOFI, PLTR, BAC, F, XLE, AMD (cheaper strikes), SNAP, UBER, LYFT, COIN, HOOD";
+  } else if (cash < 1000) {
+    maxPremium = 2.50;
+    maxStockPrice = 200;
+    budgetLabel = "GROWING ($500-1000)";
+    budgetNote = "Account is $500-1000. Options must cost under $250 per contract total. "
+      + "Mid-priced stocks now accessible. ATM options should be $1.00-$2.50 ask.";
+    stockExamples = "Examples: SOFI, PLTR, AMD, COIN, UBER, XLE, GLD, META (cheaper strikes), NVDA (far OTM only)";
+  } else if (cash < 3000) {
+    maxPremium = 4.00;
+    maxStockPrice = 350;
+    budgetLabel = "ESTABLISHED ($1K-3K)";
+    budgetNote = "Account is $1K-3K. Options must cost under $400 per contract total. "
+      + "Most mid and large cap stocks now accessible. Can trade AAPL, MSFT, GOOGL cheaper strikes.";
+    stockExamples = "Examples: AAPL, MSFT, AMD, NVDA, META, AMZN, GOOGL, XLE, GLD, SPY (OTM strikes)";
+  } else {
+    maxPremium = 8.00;
+    maxStockPrice = 600;
+    budgetLabel = "ADVANCED ($3K+)";
+    budgetNote = "Account is $3K+. Full universe accessible. Options up to $800 per contract. "
+      + "Can trade any liquid name including SPY ATM, NVDA ATM, TSLA.";
+    stockExamples = "Full S&P 500 universe available including SPY, NVDA, TSLA, AMZN, GOOGL ATM strikes";
+  }
 
   // Build regime-specific hunting instructions
   var regimeSection = "";
@@ -204,22 +245,30 @@ const SCANNER_CANDIDATES_PROMPT = function(liveStr, regimeData) {
     + "=== CURRENT MARKET REGIME ===\n"
     + regimeSection
     + "=== END REGIME ===\n\n"
-    + "Search the market RIGHT NOW and identify the 6 best stocks for options plays based on this regime.\n\n"
+    + "=== ACCOUNT BUDGET TIER: "+budgetLabel+" ===\n"
+    + budgetNote+"\n"
+    + "Max option ask price: $"+maxPremium+" per share ($"+(maxPremium*100).toFixed(0)+" per contract total)\n"
+    + "Max underlying stock price: $"+maxStockPrice+"\n"
+    + stockExamples+"\n"
+    + "=== END BUDGET ===\n\n"
+    + "Search the market RIGHT NOW and identify the 6 best stocks for options plays based on this regime AND budget.\n\n"
     + "Current market prices: "+liveStr+"\n\n"
     + "NON-NEGOTIABLE REQUIREMENTS for every candidate:\n"
     + "- Must have a REAL catalyst with a specific date within 1-7 days\n"
-    + "- Must have liquid options (volume above 500K daily minimum)\n"
-    + "- Price between $10-$500 so options premium stays under $300\n"
+    + "- Must have liquid options (open interest above 500, volume above 100K daily minimum)\n"
+    + "- Stock price MUST be under $"+maxStockPrice+" — options must be affordable\n"
+    + "- ATM option ask price MUST be under $"+maxPremium+" per share ($"+(maxPremium*100).toFixed(0)+" per contract)\n"
     + "- Premium must NOT already be overpriced relative to expected move\n"
-    + "- Must have realistic path to 50%+ gain on the option contract\n"
+    + "- Must have realistic path to 50%+ gain on the option contract within 1-7 days\n"
     + "- Max 2 tech stocks across all 6 candidates\n"
-    + "- Diversify across sectors — no more than 2 from same sector\n\n"
+    + "- Diversify across sectors — no more than 2 from same sector\n"
+    + "- DO NOT suggest AAPL, MSFT, TSLA, NVDA, AMZN, GOOGL, SPY unless account is above $500\n\n"
     + strategySection
     + "\nIMPORTANT: You are hunting for the best RISK/REWARD setups for the option CONTRACT itself — "
     + "not just stocks that look interesting. The question is always: can this option realistically "
-    + "double within 1-7 days based on a real catalyst?\n\n"
+    + "return 50%+ within 1-7 days based on a real catalyst AND stay within the $"+(maxPremium*100).toFixed(0)+" per contract budget?\n\n"
     + "Return ONLY pure JSON:\n"
-    + "{\"candidates\":[\"AAPL\",\"XLE\",\"SOFI\",\"META\",\"GLD\",\"AMD\"]}";
+    + "{\"candidates\":[\"SOFI\",\"PLTR\",\"XLE\",\"BAC\",\"SNAP\",\"MARA\"]}";
 };
 
 const REGIME_PROMPT = function(liveStr, briefingSummary, spyIVRank, spyPCRatio, unusualTicker) {
@@ -603,7 +652,7 @@ export default function QuantDashboard() {
     try{
       var liveStr=Object.entries(livePrices).map(function(e){ return e[0]+":$"+(e[1].price?e[1].price.toFixed(2):"?"); }).join(", ");
       var userMsg = "Search market now for best options plays based on current regime: "+regimeName+" (bias: "+regimeBias+"). Today: "+new Date().toLocaleDateString()+". Return 6 candidates as pure JSON only.";
-      var candTxt=await callClaude(SCANNER_CANDIDATES_PROMPT(liveStr, regime),[{role:"user",content:userMsg}]);
+      var candTxt=await callClaude(SCANNER_CANDIDATES_PROMPT(liveStr, regime, cashBalance),[{role:"user",content:userMsg}]);
       var clean=candTxt.split("\u0060\u0060\u0060json").join("").split("\u0060\u0060\u0060").join("").trim();
       var s=clean.indexOf("{"),e=clean.lastIndexOf("}");
       var parsed=JSON.parse(clean.substring(s,e+1));
@@ -956,8 +1005,31 @@ export default function QuantDashboard() {
 
         activeTab==="scanner"&&React.createElement("div",null,
           React.createElement("div",{style:S.lbl},"AI OPTIONS SCANNER — 4-AGENT COMMITTEE"),
-          React.createElement("div",{style:{fontSize:11,color:"#778899",marginBottom:12,lineHeight:1.6}},
+          React.createElement("div",{style:{fontSize:11,color:"#778899",marginBottom:8,lineHeight:1.6}},
             "Scans the entire market for the best options plays today. Runs all 4 agents on each candidate. Only plays with 2/4+ agent votes are shown. Premiums matched to your account size."
+          ),
+          React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,padding:"8px 12px",background:"#07090f",borderRadius:4,border:"1px solid #1a2a3a"}},
+            React.createElement("div",null,
+              React.createElement("span",{style:{color:"#556677",fontSize:9,letterSpacing:1}},"BUDGET TIER: "),
+              React.createElement("span",{style:{color:"#ffcc00",fontSize:10,fontWeight:"bold"}},
+                cashBalance<300?"MICRO — stocks under $80":
+                cashBalance<500?"SMALL — stocks under $120":
+                cashBalance<1000?"GROWING — stocks under $200":
+                cashBalance<3000?"ESTABLISHED — stocks under $350":
+                "ADVANCED — full universe"
+              )
+            ),
+            React.createElement("div",null,
+              React.createElement("span",{style:{color:"#556677",fontSize:9,letterSpacing:1}},"MAX PREMIUM: "),
+              React.createElement("span",{style:{color:"#00ff88",fontSize:10,fontWeight:"bold"}},
+                cashBalance<300?"$100/contract":
+                cashBalance<500?"$150/contract":
+                cashBalance<1000?"$250/contract":
+                cashBalance<3000?"$400/contract":
+                "$800/contract"
+              ),
+              React.createElement("span",{style:{color:"#334455",fontSize:9,marginLeft:8}},"unlocks with account growth")
+            )
           ),
 
           React.createElement("div",{style:{background:"#07090f",border:"1px solid #1a2a3a",borderRadius:6,padding:"12px 14px",marginBottom:12}},
