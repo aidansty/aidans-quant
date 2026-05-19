@@ -390,6 +390,9 @@ export default function QuantDashboard() {
   const [manualResult,     setManualResult]     = useState(null);
   const [regime,           setRegime]           = useState(null);
   const [regimeLoading,    setRegimeLoading]    = useState(false);
+  const [sessionJournal,   setSessionJournal]   = useState([]);
+  const [journalForm,      setJournalForm]      = useState({status:"NO_TRADE",notes:"",regime:""});
+  const [journalOpen,      setJournalOpen]      = useState(false);
   const [spyIVRank,        setSpyIVRank]        = useState("");
   const [spyPCRatio,       setSpyPCRatio]       = useState("");
   const [unusualTicker,    setUnusualTicker]    = useState("");
@@ -438,6 +441,7 @@ export default function QuantDashboard() {
       var ch=localStorage.getItem("ch3"); if(ch) setChatHistory(JSON.parse(ch));
       var sr=localStorage.getItem("sr3"); if(sr) setScanResults(JSON.parse(sr));
       var rg=localStorage.getItem("rg3"); if(rg) setRegime(JSON.parse(rg));
+      var sj=localStorage.getItem("sj3"); if(sj) setSessionJournal(JSON.parse(sj));
       var oi=localStorage.getItem("oi3");
       if(oi){
         var oiParsed=JSON.parse(oi);
@@ -483,6 +487,35 @@ export default function QuantDashboard() {
     var d=await r.json();
     if(d.error) throw new Error(d.error.message||"API error");
     return d.content.filter(function(b){ return b.type==="text"; }).map(function(b){ return b.text; }).join("\n");
+  }
+
+  function saveJournalEntry(entry){
+    var newJournal=[...sessionJournal.filter(function(j){ return j.date!==entry.date; }),entry];
+    newJournal.sort(function(a,b){ return new Date(b.date)-new Date(a.date); });
+    setSessionJournal(newJournal);
+    try{ localStorage.setItem("sj3",JSON.stringify(newJournal)); }catch(e){}
+  }
+
+  function logSession(){
+    if(!journalForm.notes.trim()&&journalForm.status==="NO_TRADE") return;
+    var today=new Date().toLocaleDateString();
+    var regimeToday=regime?(regime.regime||"UNKNOWN"):"UNKNOWN";
+    var entry={
+      date:today,
+      status:journalForm.status,
+      notes:journalForm.notes,
+      regime:regimeToday,
+      timestamp:new Date().toISOString()
+    };
+    saveJournalEntry(entry);
+    setJournalForm({status:"NO_TRADE",notes:"",regime:""});
+    setJournalOpen(false);
+  }
+
+  function deleteJournalEntry(date){
+    var newJournal=sessionJournal.filter(function(j){ return j.date!==date; });
+    setSessionJournal(newJournal);
+    try{ localStorage.setItem("sj3",JSON.stringify(newJournal)); }catch(e){}
   }
 
   async function getDailyBriefing(){
@@ -752,6 +785,28 @@ export default function QuantDashboard() {
   var totalPremiumAtRisk = optionsPositions.reduce(function(s,o){ return s+(o.contracts*o.premium*100); },0);
   var totalValue = cashBalance + totalPremiumAtRisk;
   var totalPnL = trades.filter(function(t){ return t.action==="SELL"&&t.pnl; }).reduce(function(s,t){ return s+(t.pnl||0); },0);
+  var closedTrades = trades.filter(function(t){ return t.action==="SELL"&&t.pnl!==undefined; });
+  var winCount = closedTrades.filter(function(t){ return t.pnl>0; }).length;
+  var winRate = closedTrades.length>0?((winCount/closedTrades.length)*100).toFixed(0):"--";
+  var avgHoldDays = (function(){
+    var openTrades = trades.filter(function(t){ return t.action==="BUY"; });
+    var paired = closedTrades.map(function(ct){
+      var match = openTrades.find(function(ot){ return ot.symbol===ct.symbol&&ot.strike===ct.strike&&ot.expiry===ct.expiry; });
+      if(!match) return null;
+      try{
+        var d1=new Date(match.date); var d2=new Date(ct.date);
+        return Math.max(0,Math.ceil((d2-d1)/(1000*60*60*24)));
+      }catch(e){ return null; }
+    }).filter(function(d){ return d!==null; });
+    return paired.length>0?(paired.reduce(function(a,b){ return a+b; },0)/paired.length).toFixed(1):"--";
+  })();
+  // Group all activity by date for trades tab
+  var allDates = (function(){
+    var dateSet={};
+    trades.forEach(function(t){ if(t.date) dateSet[t.date]=true; });
+    sessionJournal.forEach(function(j){ if(j.date) dateSet[j.date]=true; });
+    return Object.keys(dateSet).sort(function(a,b){ return new Date(b)-new Date(a); });
+  })();
 
   function renderVerdictCard(result,keyPrefix){
     if(!result) return null;
@@ -1356,58 +1411,147 @@ export default function QuantDashboard() {
         ),
 
         activeTab==="trades"&&React.createElement("div",null,
-          React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
-            React.createElement("span",{style:S.lbl},"TRADE HISTORY (",trades.length,")"),
-            React.createElement("span",{style:{color:totalPnL>=0?"#00ff88":"#ff4444",fontSize:12,fontWeight:"bold"}},"Total P&L: "+(totalPnL>=0?"+":"")+totalPnL.toFixed(2))
+
+          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:12}},
+            [
+              ["REALIZED P&L",(totalPnL>=0?"+":"")+totalPnL.toFixed(2),totalPnL>=0?"#00ff88":"#ff4444"],
+              ["WIN RATE",winRate+(winRate!=="--"?"%":""),"#aa88ff"],
+              ["CLOSED TRADES",closedTrades.length,"#cccccc"],
+              ["AVG HOLD",avgHoldDays+(avgHoldDays!=="--"?" days":""),"#ffcc00"],
+            ].map(function(item){
+              return React.createElement("div",{key:item[0],style:{background:"#05070e",border:"1px solid #0a0a1a",borderRadius:4,padding:"8px 10px",textAlign:"center"}},
+                React.createElement("div",{style:{color:"#556677",fontSize:8,letterSpacing:1,marginBottom:3}},item[0]),
+                React.createElement("div",{style:{color:item[2],fontSize:13,fontWeight:"bold"}},item[1])
+              );
+            })
           ),
-          trades.length===0?React.createElement("div",{style:{textAlign:"center",padding:40,color:"#334455",border:"1px dashed #2a2a4a",borderRadius:4}},
-            React.createElement("div",{style:{fontSize:24,marginBottom:8}},""),
-            React.createElement("div",{style:{fontSize:10,letterSpacing:2,color:"#aa88ff"}},"NO TRADES YET"),
-            React.createElement("div",{style:{fontSize:10,color:"#445566",marginTop:6}},"Your options trade history will appear here")
-          ):trades.map(function(t,idx){
-            var isBuy=t.action==="BUY";
-            var bc=isBuy?(t.optionType==="CALL"?"#aa88ff":"#ff88aa"):"#00ff88";
-            if(!isBuy&&t.pnl<0) bc="#ff4444";
-            var isEditing=editingTrade===idx;
-            return React.createElement("div",{key:idx,style:{background:"#0a0e18",border:"1px solid #1a1a2a",borderRadius:6,padding:12,marginBottom:8,borderLeft:"3px solid "+bc}},
-              React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}},
-                React.createElement("div",null,
-                  React.createElement("span",{style:{color:bc,fontWeight:"bold",fontSize:11,marginRight:8}},isBuy?"OPENED":"CLOSED"),
-                  React.createElement("span",{style:{color:"#ffffff",fontSize:13,fontWeight:"bold"}},t.symbol),
-                  React.createElement("span",{style:{color:t.optionType==="CALL"?"#00ff88":"#ff4444",fontSize:12,marginLeft:6}},t.optionType),
-                  React.createElement("span",{style:{color:"#cccccc",fontSize:11,marginLeft:4}},"$"+t.strike)
+
+          React.createElement("button",{
+            onClick:function(){ setJournalOpen(function(o){ return !o; }); },
+            style:Object.assign({},S.btn("#00ccff","linear-gradient(135deg,#001a2a,#002a3a)"),{marginBottom:10,padding:"10px",fontSize:10})
+          },journalOpen?"CANCEL SESSION LOG":"LOG TODAY'S SESSION — TRADE OR NO TRADE"),
+
+          journalOpen&&React.createElement("div",{style:{background:"#07090f",border:"1px solid #00ccff30",borderRadius:6,padding:"12px 14px",marginBottom:12}},
+            React.createElement("div",{style:{color:"#00ccff",fontSize:10,letterSpacing:2,marginBottom:10}},"SESSION LOG — "+new Date().toLocaleDateString()),
+            React.createElement("div",{style:{marginBottom:8}},
+              React.createElement("div",{style:{color:"#556677",fontSize:9,letterSpacing:1,marginBottom:6}},"SESSION STATUS"),
+              React.createElement("div",{style:{display:"flex",gap:6}},
+                ["TRADED","NO_TRADE","PARTIAL"].map(function(s){
+                  var label=s==="NO_TRADE"?"NO TRADE":s==="PARTIAL"?"PARTIAL DAY":s;
+                  var sc=s==="TRADED"?"#00ff88":s==="PARTIAL"?"#ffcc00":"#ff8844";
+                  return React.createElement("button",{key:s,
+                    onClick:function(){ setJournalForm(function(f){ return Object.assign({},f,{status:s}); }); },
+                    style:{flex:1,padding:"8px 4px",background:journalForm.status===s?"#0a1a0a":"#04060e",
+                      border:"1px solid "+(journalForm.status===s?sc+"80":sc+"20"),
+                      color:journalForm.status===s?sc:"#445566",fontSize:9,cursor:"pointer",borderRadius:3,fontFamily:"inherit",letterSpacing:1}
+                  },label);
+                })
+              )
+            ),
+            React.createElement("div",{style:{marginBottom:8}},
+              React.createElement("div",{style:{color:"#556677",fontSize:9,letterSpacing:1,marginBottom:4}},
+                journalForm.status==="NO_TRADE"?"WHY NO TRADE TODAY":"SESSION NOTES"
+              ),
+              React.createElement("textarea",{
+                placeholder:journalForm.status==="NO_TRADE"
+                  ?"e.g. Scanner gave nothing clean. Regime was HIGH_VOLATILITY. Waited for better setup."
+                  :"e.g. Took SOFI call 3/4 agents. Market opened choppy but held support. Watching for close.",
+                value:journalForm.notes,
+                onChange:function(e){ setJournalForm(function(f){ return Object.assign({},f,{notes:e.target.value}); }); },
+                style:Object.assign({},S.inp,{minHeight:70,resize:"vertical",lineHeight:1.5,fontSize:11})
+              }),
+              regime&&React.createElement("div",{style:{fontSize:9,color:"#334455",marginTop:4}},
+                "Regime auto-saved: "+(regime.regime||"UNKNOWN").replace(/_/g," ")+" | VIX: "+(regime.vix||"?")+" | Bias: "+(regime.bias||"?")
+              )
+            ),
+            React.createElement("button",{
+              onClick:logSession,
+              disabled:!journalForm.notes.trim(),
+              style:Object.assign({},S.btn("#00ff88","linear-gradient(135deg,#001a0d,#003322)"),{padding:"10px",fontSize:10})
+            },"SAVE SESSION LOG")
+          ),
+
+          (trades.length===0&&sessionJournal.length===0)?React.createElement("div",{style:{textAlign:"center",padding:40,color:"#334455",border:"1px dashed #2a2a4a",borderRadius:4}},
+            React.createElement("div",{style:{fontSize:10,letterSpacing:2,color:"#aa88ff"}},"NO HISTORY YET"),
+            React.createElement("div",{style:{fontSize:10,color:"#445566",marginTop:6}},"Trades and session logs will appear here grouped by day")
+          ):allDates.map(function(date){
+            var dayTrades=trades.filter(function(t){ return t.date===date; });
+            var dayJournal=sessionJournal.find(function(j){ return j.date===date; });
+            var dayClosedPnL=dayTrades.filter(function(t){ return t.action==="SELL"&&t.pnl; }).reduce(function(s,t){ return s+(t.pnl||0); },0);
+            var hasClosedTrades=dayTrades.some(function(t){ return t.action==="SELL"; });
+            var statusColor=dayJournal?(dayJournal.status==="TRADED"?"#00ff88":dayJournal.status==="PARTIAL"?"#ffcc00":"#ff8844"):"#334455";
+
+            return React.createElement("div",{key:date,style:{marginBottom:16}},
+
+              React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:"#0a0e18",borderRadius:4,marginBottom:8,borderLeft:"3px solid "+(dayJournal?statusColor:"#1a1a2a")}},
+                React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
+                  React.createElement("span",{style:{color:"#aa88ff",fontSize:11,fontWeight:"bold"}},date),
+                  dayJournal&&React.createElement("span",{style:{color:statusColor,fontSize:9,letterSpacing:1}},
+                    dayJournal.status==="NO_TRADE"?"NO TRADE":dayJournal.status==="PARTIAL"?"PARTIAL":""
+                  ),
+                  dayJournal&&dayJournal.regime&&React.createElement("span",{style:{color:"#334455",fontSize:9}},dayJournal.regime.replace(/_/g," "))
                 ),
-                React.createElement("div",{style:{display:"flex",gap:6,alignItems:"center"}},
-                  React.createElement("span",{style:{color:"#667788",fontSize:10}},t.date),
-                  React.createElement("button",{onClick:function(i){ return function(){ startEditTrade(i); }; }(idx),style:{background:"#0a1428",border:"1px solid #4488ff60",color:"#4488ff",padding:"2px 7px",fontSize:9,cursor:"pointer",borderRadius:3,fontFamily:"inherit"}},"EDIT"),
-                  React.createElement("button",{onClick:function(i){ return function(){ if(window.confirm("Delete this trade?")) deleteTrade(i); }; }(idx),style:{background:"#1a0606",border:"1px solid #ff444460",color:"#ff4444",padding:"2px 7px",fontSize:9,cursor:"pointer",borderRadius:3,fontFamily:"inherit"}},"DELETE")
+                React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
+                  hasClosedTrades&&React.createElement("span",{style:{color:dayClosedPnL>=0?"#00ff88":"#ff4444",fontSize:11,fontWeight:"bold"}},(dayClosedPnL>=0?"+":"")+dayClosedPnL.toFixed(2)+" closed"),
+                  dayTrades.length>0&&React.createElement("span",{style:{color:"#445566",fontSize:9}},dayTrades.length+" trade"+(dayTrades.length>1?"s":"")),
+                  dayJournal&&React.createElement("button",{
+                    onClick:function(d){ return function(){ if(window.confirm("Delete this session log?")) deleteJournalEntry(d); }; }(date),
+                    style:{background:"none",border:"none",color:"#334455",fontSize:9,cursor:"pointer",fontFamily:"inherit"}
+                  },"x")
                 )
               ),
-              isEditing?React.createElement("div",{style:{marginTop:8,padding:"10px",background:"#04060e",borderRadius:4,border:"1px solid #4488ff30"}},
-                React.createElement("div",{style:{color:"#4488ff",fontSize:9,letterSpacing:2,marginBottom:8}},"EDIT TRADE"),
-                React.createElement("div",{style:{display:"flex",gap:6,marginBottom:6}},
-                  React.createElement("input",{value:editForm.symbol||"",onChange:function(e){ setEditForm(Object.assign({},editForm,{symbol:e.target.value.toUpperCase()})); },style:Object.assign({},S.inp,{flex:1}),placeholder:"Symbol"}),
-                  React.createElement("input",{value:editForm.strike||"",onChange:function(e){ setEditForm(Object.assign({},editForm,{strike:e.target.value})); },style:Object.assign({},S.inp,{flex:1}),placeholder:"Strike"})
-                ),
-                React.createElement("div",{style:{display:"flex",gap:6,marginBottom:6}},
-                  React.createElement("input",{value:editForm.premium||"",onChange:function(e){ setEditForm(Object.assign({},editForm,{premium:e.target.value})); },style:Object.assign({},S.inp,{flex:1}),placeholder:"Premium"}),
-                  React.createElement("input",{value:editForm.expiry||"",onChange:function(e){ setEditForm(Object.assign({},editForm,{expiry:e.target.value})); },style:Object.assign({},S.inp,{flex:1}),placeholder:"Expiry"})
-                ),
-                React.createElement("input",{value:editForm.note||"",onChange:function(e){ setEditForm(Object.assign({},editForm,{note:e.target.value})); },style:Object.assign({},S.inp,{marginBottom:8}),placeholder:"Note"}),
-                React.createElement("div",{style:{display:"flex",gap:6}},
-                  React.createElement("button",{onClick:saveEditTrade,style:Object.assign({},S.btn("#4488ff","linear-gradient(135deg,#060e24,#000e44)"),{flex:1,padding:"8px",fontSize:10})},"SAVE"),
-                  React.createElement("button",{onClick:function(){ setEditingTrade(null); setEditForm({}); },style:Object.assign({},S.btn("#888","linear-gradient(135deg,#0a0a0a,#141414)"),{flex:1,padding:"8px",fontSize:10})},"CANCEL")
-                )
-              ):React.createElement("div",null,
-                React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
-                  React.createElement("span",{style:{color:"#aaaaaa",fontSize:11}},t.contracts+" contract · exp: "+t.expiry),
-                  React.createElement("div",null,
-                    isBuy?React.createElement("span",{style:{color:"#ff8844",fontSize:12}},"Cost: $"+t.total.toFixed(0))
-                    :React.createElement("span",{style:{color:t.pnl>=0?"#00ff88":"#ff4444",fontSize:13,fontWeight:"bold"}},(t.pnl>=0?"+":"")+t.pnl.toFixed(2)+" P&L")
+
+              dayJournal&&dayJournal.notes&&React.createElement("div",{style:{background:"#04060e",borderRadius:4,padding:"8px 10px",marginBottom:6,border:"1px solid "+(dayJournal.status==="NO_TRADE"?"#ff884420":"#00ff8820")}},
+                React.createElement("div",{style:{color:"#556677",fontSize:8,letterSpacing:1,marginBottom:3}},dayJournal.status==="NO_TRADE"?"WHY NO TRADE":"SESSION NOTES"),
+                React.createElement("div",{style:{color:"#aaaaaa",fontSize:11,lineHeight:1.5}},dayJournal.notes)
+              ),
+
+              dayTrades.map(function(t,idx){
+                var globalIdx=trades.indexOf(t);
+                var isBuy=t.action==="BUY";
+                var bc=isBuy?(t.optionType==="CALL"?"#aa88ff":"#ff88aa"):"#00ff88";
+                if(!isBuy&&t.pnl<0) bc="#ff4444";
+                var isEditing=editingTrade===globalIdx;
+                return React.createElement("div",{key:idx,style:{background:"#0a0e18",border:"1px solid #1a1a2a",borderRadius:6,padding:12,marginBottom:6,borderLeft:"3px solid "+bc}},
+                  React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}},
+                    React.createElement("div",null,
+                      React.createElement("span",{style:{color:bc,fontWeight:"bold",fontSize:11,marginRight:8}},isBuy?"OPENED":"CLOSED"),
+                      React.createElement("span",{style:{color:"#ffffff",fontSize:13,fontWeight:"bold"}},t.symbol),
+                      React.createElement("span",{style:{color:t.optionType==="CALL"?"#00ff88":"#ff4444",fontSize:12,marginLeft:6}},t.optionType),
+                      React.createElement("span",{style:{color:"#cccccc",fontSize:11,marginLeft:4}},"$"+t.strike)
+                    ),
+                    React.createElement("div",{style:{display:"flex",gap:6,alignItems:"center"}},
+                      React.createElement("button",{onClick:function(i){ return function(){ startEditTrade(i); }; }(globalIdx),style:{background:"#0a1428",border:"1px solid #4488ff60",color:"#4488ff",padding:"2px 7px",fontSize:9,cursor:"pointer",borderRadius:3,fontFamily:"inherit"}},"EDIT"),
+                      React.createElement("button",{onClick:function(i){ return function(){ if(window.confirm("Delete this trade?")) deleteTrade(i); }; }(globalIdx),style:{background:"#1a0606",border:"1px solid #ff444460",color:"#ff4444",padding:"2px 7px",fontSize:9,cursor:"pointer",borderRadius:3,fontFamily:"inherit"}},"DELETE")
+                    )
+                  ),
+                  isEditing?React.createElement("div",{style:{marginTop:8,padding:"10px",background:"#04060e",borderRadius:4,border:"1px solid #4488ff30"}},
+                    React.createElement("div",{style:{color:"#4488ff",fontSize:9,letterSpacing:2,marginBottom:8}},"EDIT TRADE"),
+                    React.createElement("div",{style:{display:"flex",gap:6,marginBottom:6}},
+                      React.createElement("input",{value:editForm.symbol||"",onChange:function(e){ setEditForm(Object.assign({},editForm,{symbol:e.target.value.toUpperCase()})); },style:Object.assign({},S.inp,{flex:1}),placeholder:"Symbol"}),
+                      React.createElement("input",{value:editForm.strike||"",onChange:function(e){ setEditForm(Object.assign({},editForm,{strike:e.target.value})); },style:Object.assign({},S.inp,{flex:1}),placeholder:"Strike"})
+                    ),
+                    React.createElement("div",{style:{display:"flex",gap:6,marginBottom:6}},
+                      React.createElement("input",{value:editForm.premium||"",onChange:function(e){ setEditForm(Object.assign({},editForm,{premium:e.target.value})); },style:Object.assign({},S.inp,{flex:1}),placeholder:"Premium"}),
+                      React.createElement("input",{value:editForm.expiry||"",onChange:function(e){ setEditForm(Object.assign({},editForm,{expiry:e.target.value})); },style:Object.assign({},S.inp,{flex:1}),placeholder:"Expiry"})
+                    ),
+                    React.createElement("input",{value:editForm.note||"",onChange:function(e){ setEditForm(Object.assign({},editForm,{note:e.target.value})); },style:Object.assign({},S.inp,{marginBottom:8}),placeholder:"Note"}),
+                    React.createElement("div",{style:{display:"flex",gap:6}},
+                      React.createElement("button",{onClick:saveEditTrade,style:Object.assign({},S.btn("#4488ff","linear-gradient(135deg,#060e24,#000e44)"),{flex:1,padding:"8px",fontSize:10})},"SAVE"),
+                      React.createElement("button",{onClick:function(){ setEditingTrade(null); setEditForm({}); },style:Object.assign({},S.btn("#888","linear-gradient(135deg,#0a0a0a,#141414)"),{flex:1,padding:"8px",fontSize:10})},"CANCEL")
+                    )
+                  ):React.createElement("div",null,
+                    React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+                      React.createElement("span",{style:{color:"#aaaaaa",fontSize:11}},t.contracts+" contract · exp: "+t.expiry),
+                      React.createElement("div",null,
+                        isBuy?React.createElement("span",{style:{color:"#ff8844",fontSize:12}},"Cost: $"+t.total.toFixed(0))
+                        :React.createElement("span",{style:{color:t.pnl>=0?"#00ff88":"#ff4444",fontSize:13,fontWeight:"bold"}},(t.pnl>=0?"+":"")+t.pnl.toFixed(2)+" P&L")
+                      )
+                    ),
+                    t.note&&React.createElement("div",{style:{color:"#556677",fontSize:10,marginTop:3}},t.note)
                   )
-                ),
-                t.note&&React.createElement("div",{style:{color:"#556677",fontSize:10,marginTop:3}},t.note)
-              )
+                );
+              })
             );
           })
         ),
