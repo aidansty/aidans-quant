@@ -398,7 +398,7 @@ export default function QuantDashboard() {
   const [unusualTicker,    setUnusualTicker]    = useState("");
   const [optionsInputSaved, setOptionsInputSaved] = useState(false);
 
-  useEffect(function(){ loadData(); fetchLivePrices(); var iv=setInterval(fetchLivePrices,60000); return function(){ clearInterval(iv); }; },[]);
+  useEffect(function(){ loadData().catch(function(e){ console.error('loadData failed:',e); }); fetchLivePrices(); var iv=setInterval(fetchLivePrices,60000); return function(){ clearInterval(iv); }; },[]);
   useEffect(function(){ runRiskEngine(); },[optionsPositions, cashBalance]);
 
   function getDaysUntilExpiry(expiryStr){
@@ -435,8 +435,11 @@ export default function QuantDashboard() {
 
   async function loadData(){
     try{
-      // Load from database first
-      var r = await fetch("/api/db");
+      // Load from database first — timeout after 5 seconds to avoid hanging
+      var controller = new AbortController();
+      var timeout = setTimeout(function(){ controller.abort(); }, 5000);
+      var r = await fetch("/api/db", {signal: controller.signal});
+      clearTimeout(timeout);
       var res = await r.json();
       if(res.success && res.data){
         var d = res.data;
