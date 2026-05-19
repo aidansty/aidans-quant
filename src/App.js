@@ -434,33 +434,50 @@ export default function QuantDashboard() {
   }
 
   function loadData(){
-    function applyData(d){
-      try{ if(d.op3) setOptionsPositions(JSON.parse(d.op3)); }catch(e){}
-      try{ if(d.tr3) setTrades(JSON.parse(d.tr3)); }catch(e){}
-      try{ if(d.ca3) setCashBalance(parseFloat(d.ca3)); }catch(e){}
-      try{ if(d.ch3) setChatHistory(JSON.parse(d.ch3)); }catch(e){}
-      try{ if(d.sr3) setScanResults(JSON.parse(d.sr3)); }catch(e){}
-      try{ if(d.rg3) setRegime(JSON.parse(d.rg3)); }catch(e){}
-      try{ if(d.sj3) setSessionJournal(JSON.parse(d.sj3)); }catch(e){}
+    function safeParse(val){
+      if(!val) return null;
       try{
-        if(d.oi3){
-          var oiParsed=JSON.parse(d.oi3);
-          if(oiParsed.ivRank) setSpyIVRank(oiParsed.ivRank);
-          if(oiParsed.pcRatio) setSpyPCRatio(oiParsed.pcRatio);
-          if(oiParsed.unusual) setUnusualTicker(oiParsed.unusual);
+        var p = typeof val === "string" ? JSON.parse(val) : val;
+        // Handle double-stringified values
+        if(typeof p === "string") p = JSON.parse(p);
+        return p;
+      }catch(e){ return null; }
+    }
+    function safeArray(val){
+      var p = safeParse(val);
+      return Array.isArray(p) ? p : [];
+    }
+    function safeObj(val){
+      var p = safeParse(val);
+      return (p && typeof p === "object" && !Array.isArray(p)) ? p : null;
+    }
+    function applyData(d){
+      try{ setOptionsPositions(safeArray(d.op3)); }catch(e){}
+      try{ setTrades(safeArray(d.tr3)); }catch(e){}
+      try{ if(d.ca3){ var ca=parseFloat(d.ca3); if(!isNaN(ca)) setCashBalance(ca); } }catch(e){}
+      try{ setChatHistory(safeArray(d.ch3)); }catch(e){}
+      try{ setScanResults(safeArray(d.sr3)); }catch(e){}
+      try{ var rg=safeObj(d.rg3); if(rg) setRegime(rg); }catch(e){}
+      try{ setSessionJournal(safeArray(d.sj3)); }catch(e){}
+      try{
+        var oi=safeObj(d.oi3);
+        if(oi){
+          if(oi.ivRank) setSpyIVRank(oi.ivRank);
+          if(oi.pcRatio) setSpyPCRatio(oi.pcRatio);
+          if(oi.unusual) setUnusualTicker(oi.unusual);
         }
       }catch(e){}
     }
     function loadFromLocalStorage(){
       var d={};
-      try{ d.op3=localStorage.getItem("op3"); }catch(e){}
-      try{ d.tr3=localStorage.getItem("tr3"); }catch(e){}
-      try{ d.ca3=localStorage.getItem("ca3"); }catch(e){}
-      try{ d.ch3=localStorage.getItem("ch3"); }catch(e){}
-      try{ d.sr3=localStorage.getItem("sr3"); }catch(e){}
-      try{ d.rg3=localStorage.getItem("rg3"); }catch(e){}
-      try{ d.sj3=localStorage.getItem("sj3"); }catch(e){}
-      try{ d.oi3=localStorage.getItem("oi3"); }catch(e){}
+      try{ d.op3=localStorage.getItem("op3")||"[]"; }catch(e){ d.op3="[]"; }
+      try{ d.tr3=localStorage.getItem("tr3")||"[]"; }catch(e){ d.tr3="[]"; }
+      try{ d.ca3=localStorage.getItem("ca3")||"250"; }catch(e){ d.ca3="250"; }
+      try{ d.ch3=localStorage.getItem("ch3")||"[]"; }catch(e){ d.ch3="[]"; }
+      try{ d.sr3=localStorage.getItem("sr3")||"[]"; }catch(e){ d.sr3="[]"; }
+      try{ d.rg3=localStorage.getItem("rg3")||null; }catch(e){ d.rg3=null; }
+      try{ d.sj3=localStorage.getItem("sj3")||"[]"; }catch(e){ d.sj3="[]"; }
+      try{ d.oi3=localStorage.getItem("oi3")||null; }catch(e){ d.oi3=null; }
       applyData(d);
     }
     fetch("/api/db")
