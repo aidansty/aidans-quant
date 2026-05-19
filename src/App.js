@@ -505,6 +505,8 @@ export default function QuantDashboard() {
       status:journalForm.status,
       notes:journalForm.notes,
       regime:regimeToday,
+      vix:regime?(regime.vix||""):"",
+      bias:regime?(regime.bias||""):"",
       timestamp:new Date().toISOString()
     };
     saveJournalEntry(entry);
@@ -805,7 +807,17 @@ export default function QuantDashboard() {
     var dateSet={};
     trades.forEach(function(t){ if(t.date) dateSet[t.date]=true; });
     sessionJournal.forEach(function(j){ if(j.date) dateSet[j.date]=true; });
-    return Object.keys(dateSet).sort(function(a,b){ return new Date(b)-new Date(a); });
+    // Safe sort — compare strings directly, most recent first
+    // Dates stored as toLocaleDateString so sort by timestamp from journal when available
+    return Object.keys(dateSet).sort(function(a,b){
+      var ja=sessionJournal.find(function(j){ return j.date===a; });
+      var jb=sessionJournal.find(function(j){ return j.date===b; });
+      if(ja&&ja.timestamp&&jb&&jb.timestamp) return jb.timestamp.localeCompare(ja.timestamp);
+      var ta=trades.filter(function(t){ return t.date===a; });
+      var tb=trades.filter(function(t){ return t.date===b; });
+      if(ta.length&&tb.length&&ta[0].timestamp&&tb[0].timestamp) return tb[0].timestamp.localeCompare(ta[0].timestamp);
+      return b.localeCompare(a);
+    });
   })();
 
   function renderVerdictCard(result,keyPrefix){
@@ -1452,13 +1464,14 @@ export default function QuantDashboard() {
               React.createElement("div",{style:{color:"#556677",fontSize:9,letterSpacing:1,marginBottom:4}},
                 journalForm.status==="NO_TRADE"?"WHY NO TRADE TODAY":"SESSION NOTES"
               ),
-              React.createElement("textarea",{
+              React.createElement("input",{
+                type:"text",
                 placeholder:journalForm.status==="NO_TRADE"
-                  ?"e.g. Scanner gave nothing clean. Regime was HIGH_VOLATILITY. Waited for better setup."
-                  :"e.g. Took SOFI call 3/4 agents. Market opened choppy but held support. Watching for close.",
+                  ?"Why no trade? e.g. Regime WAIT, P/C 2.22, waiting for NVDA earnings"
+                  :"Notes e.g. Took SOFI call 3/4 agents, choppy open but held support",
                 value:journalForm.notes,
                 onChange:function(e){ setJournalForm(function(f){ return Object.assign({},f,{notes:e.target.value}); }); },
-                style:Object.assign({},S.inp,{minHeight:70,resize:"vertical",lineHeight:1.5,fontSize:11})
+                style:Object.assign({},S.inp,{fontSize:11})
               }),
               regime&&React.createElement("div",{style:{fontSize:9,color:"#334455",marginTop:4}},
                 "Regime auto-saved: "+(regime.regime||"UNKNOWN").replace(/_/g," ")+" | VIX: "+(regime.vix||"?")+" | Bias: "+(regime.bias||"?")
@@ -1502,7 +1515,10 @@ export default function QuantDashboard() {
               ),
 
               dayJournal&&dayJournal.notes&&React.createElement("div",{style:{background:"#04060e",borderRadius:4,padding:"8px 10px",marginBottom:6,border:"1px solid "+(dayJournal.status==="NO_TRADE"?"#ff884420":"#00ff8820")}},
-                React.createElement("div",{style:{color:"#556677",fontSize:8,letterSpacing:1,marginBottom:3}},dayJournal.status==="NO_TRADE"?"WHY NO TRADE":"SESSION NOTES"),
+                React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}},
+                  React.createElement("div",{style:{color:"#556677",fontSize:8,letterSpacing:1}},dayJournal.status==="NO_TRADE"?"WHY NO TRADE":"SESSION NOTES"),
+                  dayJournal.vix&&React.createElement("div",{style:{color:"#445566",fontSize:8}},"VIX: "+dayJournal.vix+(dayJournal.bias?" | "+dayJournal.bias.replace(/_/g," "):""))
+                ),
                 React.createElement("div",{style:{color:"#aaaaaa",fontSize:11,lineHeight:1.5}},dayJournal.notes)
               ),
 
