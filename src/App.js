@@ -204,7 +204,7 @@ const SCANNER_CANDIDATES_PROMPT = function(liveStr, regimeData, accountCash) {
     + "Max underlying stock price: $"+maxStockPrice+"\n"
     + stockExamples+"\n"
     + "=== END BUDGET ===\n\n"
-    + "Search the market RIGHT NOW and identify the 6 best stocks for options plays based on this regime AND budget.\n\n"
+    + "Search the market RIGHT NOW and identify the 4 best stocks for options plays based on this regime AND budget.\n\n"
     + "Current market prices: "+liveStr+"\n\n"
     + "NON-NEGOTIABLE REQUIREMENTS for every candidate:\n"
     + "- Must have a REAL catalyst with a specific date within 1-7 days\n"
@@ -221,7 +221,7 @@ const SCANNER_CANDIDATES_PROMPT = function(liveStr, regimeData, accountCash) {
     + "not just stocks that look interesting. The question is always: can this option realistically "
     + "return 50%+ within 1-7 days based on a real catalyst AND stay within the $"+(maxPremium*100).toFixed(0)+" per contract budget?\n\n"
     + "Return ONLY pure JSON:\n"
-    + "{\"candidates\":[\"SOFI\",\"PLTR\",\"XLE\",\"BAC\",\"SNAP\",\"MARA\"]}";
+    + "{\"candidates\":[\"SOFI\",\"PLTR\",\"XLE\",\"BAC\"]}";
 };
 
 const REGIME_PROMPT = function(liveStr, briefingSummary, spyIVRank, spyPCRatio, unusualTicker) {
@@ -709,19 +709,22 @@ export default function QuantDashboard() {
       if(!candidates.length) throw new Error("No valid candidates found. Please try again.");
       setScanStatus("Found "+candidates.length+" candidates. Running 4 agents on each...");
       var approved=[];
-      for(var b=0;b<candidates.length;b+=2){
-        var batch=candidates.slice(b,b+2);
-        setScanStatus("Analyzing: "+batch.join(" + ")+"... ("+(Math.min(b+2,candidates.length))+" of "+candidates.length+")");
-        var batchResults=await Promise.all(batch.map(function(sym){ return runAgentsOnSymbol(sym); }));
-        batchResults.forEach(function(result){
+      for(var b=0;b<candidates.length;b++){
+        var sym=candidates[b];
+        setScanStatus("Analyzing "+sym+"... ("+( b+1)+" of "+candidates.length+") — please wait");
+        try{
+          var result=await runAgentsOnSymbol(sym);
           if(result.passesCommittee){
             approved.push(result);
             setScanResults(function(prev){ var next=[...prev,result]; saveToDb("sr3",JSON.stringify(next)); return next; });
           }
-        });
-        if(b+2<candidates.length){ setScanStatus("Pausing between batches..."); await new Promise(function(res){ setTimeout(res,3000); }); }
+        }catch(e){ console.warn("Agent error on "+sym+":",e.message); }
+        if(b<candidates.length-1){
+          setScanStatus("Pausing 15 seconds before next stock to avoid rate limits...");
+          await new Promise(function(res){ setTimeout(res,15000); });
+        }
       }
-      if(approved.length===0) setScanStatus("Scan complete. No plays passed the committee today. Try again or check manual symbol.");
+      if(approved.length===0) setScanStatus("Scan complete. No plays passed the 4-agent committee today. Use manual symbol check for specific stocks.");
       else setScanStatus("Scan complete. "+approved.length+" options play"+(approved.length>1?"s":"")+" approved by committee.");
     }catch(err){ setScanStatus("Scan error: "+err.message+". Please try again."); }
     setScanLoading(false);
@@ -1087,7 +1090,7 @@ export default function QuantDashboard() {
         activeTab==="scanner"&&React.createElement("div",null,
           React.createElement("div",{style:S.lbl},"AI OPTIONS SCANNER — 4-AGENT COMMITTEE"),
           React.createElement("div",{style:{fontSize:11,color:"#778899",marginBottom:8,lineHeight:1.6}},
-            "Scans the entire market for the best options plays today. Runs all 4 agents on each candidate. Only plays with 2/4+ agent votes are shown. Premiums matched to your account size."
+            "Finds the 4 best options plays today. Runs all 4 agents on each stock one at a time. Only plays with 2/4+ agent votes are shown. Takes 4-5 minutes total."
           ),
           React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,padding:"8px 12px",background:"#07090f",borderRadius:4,border:"1px solid #1a2a3a"}},
             React.createElement("div",null,
@@ -1247,7 +1250,7 @@ export default function QuantDashboard() {
             )
           ),
           React.createElement("button",{onClick:runMarketScan,disabled:scanLoading||(regime&&regime.trade_or_wait==="WAIT"),style:Object.assign({},S.btn(),(regime&&regime.trade_or_wait==="WAIT")?{opacity:0.4,cursor:"not-allowed"}:{})},
-            scanLoading?"SCANNING... (2-3 minutes, running in batches)":regime&&regime.trade_or_wait==="WAIT"?"SCAN BLOCKED — BAD MARKET CONDITIONS":regime&&regime.regime==="TRENDING_BEAR"?"SCAN — HUNTING PUTS (BEARISH REGIME)":regime&&regime.regime==="HIGH_VOLATILITY"?"SCAN — BINARY EVENT PLAYS ONLY":regime&&regime.regime==="EVENT_DRIVEN"?"SCAN — CATALYST PLAYS ONLY":regime&&regime.regime==="CHOPPY_NEUTRAL"?"SCAN — CONSERVATIVE MODE":"SCAN — HUNTING CALLS (BULL REGIME)"
+            scanLoading?"SCANNING... (4-5 minutes, one stock at a time)":regime&&regime.trade_or_wait==="WAIT"?"SCAN BLOCKED — BAD MARKET CONDITIONS":regime&&regime.regime==="TRENDING_BEAR"?"SCAN — HUNTING PUTS (BEARISH REGIME)":regime&&regime.regime==="HIGH_VOLATILITY"?"SCAN — BINARY EVENT PLAYS ONLY":regime&&regime.regime==="EVENT_DRIVEN"?"SCAN — CATALYST PLAYS ONLY":regime&&regime.regime==="CHOPPY_NEUTRAL"?"SCAN — CONSERVATIVE MODE":"SCAN — HUNTING CALLS (BULL REGIME)"
           ),
           scanStatus&&React.createElement("div",{style:{marginTop:8,marginBottom:8,padding:"8px 12px",background:"#0a0e18",borderRadius:4,border:"1px solid #1a1a2a",color:scanLoading?"#ffcc00":"#aa88ff",fontSize:11,letterSpacing:1}},scanStatus),
           scanResults.length>0&&React.createElement("div",{style:{marginTop:12}},
