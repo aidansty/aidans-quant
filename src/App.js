@@ -486,6 +486,16 @@ export default function QuantDashboard() {
     return d.content.filter(function(b){ return b.type==="text"; }).map(function(b){ return b.text; }).join("\n");
   }
 
+  async function callClaudeJSON(system,messages){
+    // Stripped down call for JSON-only responses — no web search, lower tokens, faster
+    var key=process.env.REACT_APP_ANTHROPIC_API_KEY;
+    var body={model:"claude-haiku-4-5-20251001",max_tokens:200,system:system,messages:messages};
+    var r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify(body)});
+    var d=await r.json();
+    if(d.error) throw new Error(d.error.message||"API error");
+    return d.content.filter(function(b){ return b.type==="text"; }).map(function(b){ return b.text; }).join("\n");
+  }
+
   function saveJournalEntry(entry){
     var newJournal=[...sessionJournal.filter(function(j){ return j.date!==entry.date; }),entry];
     newJournal.sort(function(a,b){ return new Date(b.date)-new Date(a.date); });
@@ -684,7 +694,7 @@ export default function QuantDashboard() {
     try{
       var liveStr=Object.entries(livePrices).map(function(e){ return e[0]+":$"+(e[1].price?e[1].price.toFixed(2):"?"); }).join(", ");
       var userMsg = "Search market now for best options plays based on current regime: "+regimeName+" (bias: "+regimeBias+"). Today: "+new Date().toLocaleDateString()+". Return 6 candidates as pure JSON only.";
-      var candTxt=await callClaude(SCANNER_CANDIDATES_PROMPT(liveStr, regime, cashBalance),[{role:"user",content:userMsg}]);
+      var candTxt=await callClaudeJSON(SCANNER_CANDIDATES_PROMPT(liveStr, regime, cashBalance),[{role:"user",content:userMsg}]);
       var clean=candTxt.split("\u0060\u0060\u0060json").join("").split("\u0060\u0060\u0060").join("").trim();
       var s=clean.indexOf("{"),e=clean.lastIndexOf("}");
       if(s===-1||e===-1) throw new Error("Scanner returned no JSON. Please try again.");
