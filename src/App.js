@@ -129,6 +129,8 @@ const SCANNER_CANDIDATES_PROMPT = function(liveStr, regimeData, accountCash) {
   var bias = regimeData ? (regimeData.bias || "NEUTRAL") : "NEUTRAL";
   var vix = regimeData ? (regimeData.vix || "?") : "?";
   var cash = accountCash || 250;
+  // Keep regime section concise to avoid rate limits
+  var regimeShort = regime.replace(/_/g," ");
 
   // Dynamic budget tier — scales automatically as account grows
   var maxPremium, maxStockPrice, budgetLabel, budgetNote, stockExamples;
@@ -175,70 +177,21 @@ const SCANNER_CANDIDATES_PROMPT = function(liveStr, regimeData, accountCash) {
   var strategySection = "";
 
   if (regime === "TRENDING_BULL") {
-    regimeSection = "REGIME: TRENDING BULL — Hunt CALL candidates aggressively.\n"
-      + "Look for: stocks in strong uptrends with upcoming bullish catalysts, breaking out above resistance, "
-      + "institutional accumulation, unusual call volume already appearing, sectors with inflows.\n"
-      + "Avoid: stocks near resistance, overextended moves, anything with negative catalyst incoming.\n";
-    strategySection = "CALL HUNTING STRATEGIES (use all 6 candidates for calls):\n"
-      + "1. BREAKOUT+CATALYST - stock breaking above key resistance with event within 7 days\n"
-      + "2. MOMENTUM+EARNINGS - strong trend stock with upcoming earnings expected to beat\n"
-      + "3. UNUSUAL CALL FLOW - stock with 3x+ normal call volume in last 48 hours\n"
-      + "4. SECTOR LEADER - strongest stock in the hottest sector right now\n"
-      + "5. MEAN REVERSION UP - oversold stock bouncing from strong support\n"
-      + "6. EVENT-DRIVEN CALL - Fed, CPI, FDA, product launch within 3 days with bullish setup\n";
+    regimeSection = "REGIME: TRENDING BULL — Hunt CALL candidates. Strong uptrends, bullish catalysts, unusual call volume, sector inflows.\n";
+    strategySection = "Hunt calls: breakouts with catalyst, earnings beats, unusual call flow 3x+, sector leaders, oversold bounces.\n";
   } else if (regime === "TRENDING_BEAR") {
-    regimeSection = "REGIME: TRENDING BEAR — Hunt PUT candidates aggressively.\n"
-      + "Look for: stocks breaking below key support, sectors under heavy institutional selling, "
-      + "stocks with negative catalysts incoming, weak earnings expected, macro headwinds specific to the company, "
-      + "unusual put volume appearing, stocks failing to hold moving averages.\n"
-      + "Avoid: oversold stocks already down 15%+, any stock with positive catalyst incoming.\n";
-    strategySection = "PUT HUNTING STRATEGIES (use all 6 candidates for puts):\n"
-      + "1. BREAKDOWN+CATALYST - stock breaking below key support with negative event within 7 days\n"
-      + "2. WEAK EARNINGS PLAY - stock expected to miss earnings or cut guidance\n"
-      + "3. UNUSUAL PUT FLOW - stock with 3x+ normal put volume in last 48 hours\n"
-      + "4. SECTOR LAGGARD - weakest stock in the weakest sector right now\n"
-      + "5. MEAN REVERSION DOWN - overbought stock rolling over from resistance\n"
-      + "6. MACRO HEADWIND PLAY - company directly hurt by current macro conditions (oil, rates, Iran)\n";
+    regimeSection = "REGIME: TRENDING BEAR — Hunt PUT candidates. Breakdowns below support, negative catalysts, unusual put volume, sector selling.\n";
+    strategySection = "Hunt puts: breakdowns below support, weak earnings expected, unusual put flow 3x+, sector laggards, macro headwind stocks.\n";
   } else if (regime === "HIGH_VOLATILITY") {
-    regimeSection = "REGIME: HIGH VOLATILITY (VIX " + vix + ") — Hunt BINARY EVENT plays only.\n"
-      + "Premiums are expensive. Only trade stocks with a guaranteed binary catalyst within 3 days "
-      + "where the move will be large enough to overcome expensive premium. "
-      + "Both calls and puts are valid — direction depends on the specific setup.\n"
-      + "Avoid: any stock without a hard catalyst, momentum plays, mean reversion plays.\n";
-    strategySection = "HIGH VOLATILITY STRATEGIES (binary events only):\n"
-      + "1. EARNINGS BINARY - stock reporting earnings within 3 days, clear directional lean\n"
-      + "2. FDA DECISION - binary FDA catalyst within 3 days\n"
-      + "3. FED/CPI EVENT - macro event within 2 days with clear market impact\n"
-      + "4. GEOPOLITICAL PLAY - sector directly impacted by current crisis (energy, defense)\n"
-      + "5. TECHNICAL BREAKDOWN - stock at major make-or-break level with hard catalyst\n"
-      + "6. SQUEEZE CANDIDATE - heavily shorted stock with catalyst for short squeeze\n";
+    regimeSection = "REGIME: HIGH VOLATILITY VIX "+vix+" — Binary events only within 3 days. Both directions valid.\n";
+    strategySection = "Binary events only: earnings within 3 days, FDA decisions, Fed/CPI events, geopolitical sector plays.\n";
   } else if (regime === "EVENT_DRIVEN") {
-    regimeSection = "REGIME: EVENT DRIVEN — Catalyst plays only, both directions.\n"
-      + "Focus exclusively on stocks with hard catalysts within 3 days. "
-      + "Both calls and puts valid depending on the specific setup and direction of expected move. "
-      + "The catalyst must be real and dated — not vague.\n"
-      + "Avoid: anything without a specific dated catalyst within 3 days.\n";
-    strategySection = "EVENT-DRIVEN STRATEGIES:\n"
-      + "1. EARNINGS PLAY - reporting within 3 days, strong directional lean\n"
-      + "2. FED/CPI/PPI - macro data release within 3 days\n"
-      + "3. FDA CATALYST - drug approval or rejection within 3 days\n"
-      + "4. PRODUCT LAUNCH - major product event within 3 days\n"
-      + "5. LEGAL/REGULATORY - court ruling or regulatory decision within 3 days\n"
-      + "6. ANALYST EVENT - investor day, guidance update within 3 days\n";
+    regimeSection = "REGIME: EVENT DRIVEN — Hard catalysts within 3 days only. Both directions valid.\n";
+    strategySection = "Catalyst plays only within 3 days: earnings, Fed/CPI, FDA, product launches, regulatory decisions.\n";
   } else {
     // CHOPPY_NEUTRAL or UNKNOWN — conservative
-    regimeSection = "REGIME: CHOPPY/NEUTRAL — Be very selective, mean reversion only.\n"
-      + "Market is going sideways. Options decay fast in chop. Only trade stocks with "
-      + "a very clear and imminent catalyst that forces a directional move. "
-      + "Both calls and puts valid. Size down on all plays.\n"
-      + "Avoid: momentum plays, breakout plays, anything dependent on sustained trend.\n";
-    strategySection = "CONSERVATIVE STRATEGIES (choppy market):\n"
-      + "1. EARNINGS BINARY - must report within 2 days, not 7\n"
-      + "2. HARD CATALYST MEAN REVERSION - oversold with dated catalyst within 3 days\n"
-      + "3. SECTOR OUTLIER - one sector moving clearly despite choppy overall market\n"
-      + "4. VOLATILITY COMPRESSION PLAY - stock coiling tight before known catalyst\n"
-      + "5. MACRO EVENT PLAY - Fed or CPI within 2 days only\n"
-      + "6. SQUEEZE SETUP - stock with high short interest and hard catalyst incoming\n";
+    regimeSection = "REGIME: CHOPPY NEUTRAL — Very selective. Imminent catalyst required. Size down.\n";
+    strategySection = "Conservative only: earnings within 2 days, hard catalysts, sector outliers, volatility compression plays.\n";
   }
 
   return "You are the Head Quant at an asymmetric AI hedge fund focused on OPTIONS TRADING. Today: "+today+".\n\n"
@@ -519,7 +472,7 @@ export default function QuantDashboard() {
   function getBriefingSummary(){
     if(!briefing||briefing.length<50) return "";
     var lines=briefing.split("\n").filter(function(l){ return l.trim().length>20; });
-    return lines.slice(0,20).join(" ").slice(0,1200);
+    return lines.slice(0,8).join(" ").slice(0,400);
   }
 
   async function callClaude(system,messages,search){
@@ -734,9 +687,16 @@ export default function QuantDashboard() {
       var candTxt=await callClaude(SCANNER_CANDIDATES_PROMPT(liveStr, regime, cashBalance),[{role:"user",content:userMsg}]);
       var clean=candTxt.split("\u0060\u0060\u0060json").join("").split("\u0060\u0060\u0060").join("").trim();
       var s=clean.indexOf("{"),e=clean.lastIndexOf("}");
-      var parsed=JSON.parse(clean.substring(s,e+1));
-      var candidates=parsed.candidates||[];
-      if(!candidates.length) throw new Error("No candidates returned");
+      if(s===-1||e===-1) throw new Error("Scanner returned no JSON. Please try again.");
+      var parsed=null;
+      try{ parsed=JSON.parse(clean.substring(s,e+1)); }catch(ex){ throw new Error("Scanner response malformed. Please try again."); }
+      var candidates=[];
+      if(parsed&&Array.isArray(parsed.candidates)){
+        candidates=parsed.candidates.filter(function(c){ return typeof c==="string"&&c.length>0; });
+      } else if(parsed&&typeof parsed.candidates==="string"){
+        candidates=parsed.candidates.split(",").map(function(c){ return c.trim().toUpperCase(); }).filter(Boolean);
+      }
+      if(!candidates.length) throw new Error("No valid candidates found. Please try again.");
       setScanStatus("Found "+candidates.length+" candidates. Running 4 agents on each...");
       var approved=[];
       for(var b=0;b<candidates.length;b+=2){
