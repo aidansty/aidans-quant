@@ -599,12 +599,12 @@ export default function QuantDashboard() {
       else if(v.direction==="SELL") sellScore+=w*conv;
     });
     var weightedScore=Math.max(buyScore,sellScore);
-    var consensus=buyScore>=sellScore&&weightedScore>=0.70?"BUY":sellScore>buyScore&&weightedScore>=0.70?"SELL":"HOLD";
+    var consensus=buyScore>=sellScore&&weightedScore>=0.60?"BUY":sellScore>buyScore&&weightedScore>=0.60?"SELL":"HOLD";
     var dirs=Object.values(votes).map(function(v){ return v.direction; });
     var buys=dirs.filter(function(d){ return d==="BUY"; }).length;
     var sells=dirs.filter(function(d){ return d==="SELL"; }).length;
     var avgConv=weightedScore;
-    var stars=weightedScore>=0.85?"HIGH CONVICTION":weightedScore>=0.70?"MEDIUM CONVICTION":"BELOW THRESHOLD";
+    var stars=weightedScore>=0.80?"HIGH CONVICTION":weightedScore>=0.60?"MEDIUM CONVICTION":"BELOW THRESHOLD";
     var consensusVotes=Object.values(votes).filter(function(v){ return v.direction===consensus; });
     var priceSource=consensusVotes.length>0?consensusVotes:Object.values(votes);
     var entries=priceSource.filter(function(v){ return v.entry&&typeof v.entry==="number"; }).map(function(v){ return v.entry; });
@@ -653,9 +653,9 @@ export default function QuantDashboard() {
     var liquidityGrade=realAtm?realAtm.liquidityGrade:null;
     var dataSource=realChain?"REAL CHAIN DATA":"AI ESTIMATED";
     var maxRisk=50;
-    if(weightedScore>=0.90) maxRisk=150;
-    else if(weightedScore>=0.80) maxRisk=100;
-    else if(weightedScore>=0.70) maxRisk=75;
+    if(weightedScore>=0.85) maxRisk=150;
+    else if(weightedScore>=0.75) maxRisk=100;
+    else if(weightedScore>=0.60) maxRisk=75;
     if(!liquidityOk) maxRisk=Math.min(maxRisk,50);
     var thetaWarning=null;
     if(daysToExpiry<=2) thetaWarning="HIGH THETA RISK - "+daysToExpiry+" days left, decay accelerating fast";
@@ -668,7 +668,7 @@ export default function QuantDashboard() {
       wolfAbstaining:wolfAbstains,wolfEarnings:wolfV.earningsData||null,sorosSignal:sorosV.news_momentum||"NEUTRAL",sorosSentiment:sorosV.sentimentdata||null,squeezePotential:sorosV.squeeze_potential||false,weightedScore:weightedScore,
       consensusOptionType:conOptType,consensusStrike:avgStrike,consensusPremium:prems[0]||null,
       callCount:callC,putCount:putC,avgHorizon:avgH,tradeTypeDecision:ttd,tradeTypeReason:ttr,
-      passesCommittee:weightedScore>=0.70&&consensus!=="HOLD",
+      passesCommittee:weightedScore>=0.60&&consensus!=="HOLD",
       delta:delta,theta:theta,openInterest:openInterest,bidAskSpread:bidAskSpread,liquidityOk:liquidityOk,
       daysToExpiry:daysToExpiry,maxRisk:maxRisk,thetaWarning:thetaWarning,takeProfit:takeProfit,stopLoss:stopLoss,
       realIV:realIV,liquidityGrade:liquidityGrade,dataSource:dataSource,stockPCRatio:realChain?realChain.stockPCRatio:null,
@@ -894,7 +894,7 @@ export default function QuantDashboard() {
           React.createElement("span",{style:{color:consColor,fontSize:14,fontWeight:"bold"}},C.consensus),
           React.createElement("span",{style:{color:"#00ff88",fontSize:12}},"Buy: "+C.buys+"/4"),
           React.createElement("span",{style:{color:"#ff6666",fontSize:12}},"Sell: "+C.sells+"/4"),
-          React.createElement("span",{style:{color:C.weightedScore>=0.85?"#00ff88":C.weightedScore>=0.70?"#ffcc00":"#ff4444",fontSize:12,fontWeight:"bold"}},"Score: "+(C.weightedScore*100).toFixed(0)+"%"),
+          React.createElement("span",{style:{color:C.weightedScore>=0.80?"#00ff88":C.weightedScore>=0.60?"#ffcc00":"#ff4444",fontSize:12,fontWeight:"bold"}},"Score: "+(C.weightedScore*100).toFixed(0)+"%"),
           C.wolfAbstaining&&React.createElement("span",{style:{color:"#556677",fontSize:10}},"Wolf abstained"),
           React.createElement("span",{style:{color:"#888888",fontSize:11}},"Hold: "+C.avgHorizon+"d")
         )
@@ -983,7 +983,7 @@ export default function QuantDashboard() {
         ),
         !C.passesCommittee&&React.createElement("div",{style:{background:"#1a0a00",borderRadius:6,padding:"10px 14px",marginBottom:12,border:"2px solid #ff880040",textAlign:"center"}},
           React.createElement("div",{style:{color:"#ff8844",fontSize:13,fontWeight:"bold",marginBottom:4}},"COMMITTEE REJECTED"),
-          React.createElement("div",{style:{color:"#aaaaaa",fontSize:11}},"Weighted score: "+(C.weightedScore*100).toFixed(0)+"% — below 70% threshold. Need Cohen + Dalio or stronger signal. Do not trade.")
+          React.createElement("div",{style:{color:"#aaaaaa",fontSize:11}},"Weighted score: "+(C.weightedScore*100).toFixed(0)+"% — below 60% threshold. Need Cohen + Dalio or stronger signal. Do not trade.")
         ),
         React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}},
           React.createElement("div",{style:{background:"#003322",border:"2px solid #00ff8850",borderRadius:6,padding:"8px",textAlign:"center"}},
