@@ -4,12 +4,21 @@ import React, { useState, useEffect } from "react";
 const STARTING_CASH = 250;
 
 const WOLF_PROMPT = function(sym) {
-  return "You are Agent Wolf - a Warren Buffett-style fundamental analyst. Analyze "+sym+" fundamentals to determine if they support a SHORT-TERM OPTIONS PLAY (1-5 days).\n"
-    + "Search for: P/E ratio, revenue growth, earnings history, profit margins, debt, free cash flow, upcoming earnings date.\n"
-    + "Your job: are the fundamentals strong enough to justify buying a call or put option on "+sym+" right now?\n"
+  return "You are Agent Wolf - an earnings catalyst specialist. Your ONLY job is to determine if "+sym+" has an earnings event within 7 days and whether that event creates a tradeable options setup.\n"
+    + "STEP 1: Search for "+sym+" next earnings date. Is it within the next 7 days? If NO earnings within 7 days, you MUST abstain.\n"
+    + "STEP 2 (only if earnings within 7 days): Search for:\n"
+    + "- Has "+sym+" beaten EPS estimates in each of the last 4 quarters? Yes or no per quarter.\n"
+    + "- Did guidance trend upward last quarter?\n"
+    + "- What is the options market implied move for earnings? What is the historical average post-earnings move?\n"
+    + "- Is the implied move LESS than the historical move? If yes, options are underpriced — strong signal.\n"
+    + "If NO earnings within 7 days respond with abstain=true and direction=HOLD conviction=0.\n"
+    + "If earnings within 7 days respond with full analysis.\n"
     + "Respond in pure JSON only:\n"
     + "{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":850,\"stop\":695,"
-    + "\"reasoning\":\"Strong fundamentals support bullish options play\",\"horizon_days\":3,"
+    + "\"reasoning\":\"Earnings in 3 days, beat 4/4 last quarters, implied move 5% vs historical 9%\","
+    + "\"horizon_days\":3,\"abstain\":false,\"earnings_within_7_days\":true,"
+    + "\"earnings_date\":\"May 28\",\"beat_streak\":4,\"guidance_up\":true,"
+    + "\"implied_move_pct\":5,\"historical_move_pct\":9,\"options_underpriced\":true,"
     + "\"option_type\":\"CALL\",\"option_strike\":760,\"option_expiry\":\"3-5 days\",\"option_premium_est\":\"$2.50-$4.00\"}";
 };
 
@@ -92,15 +101,23 @@ const DALIO_PROMPT = function(sym, price) {
     + "\"option_type\":\"CALL\",\"option_strike\":755,\"option_expiry\":\"3-5 days\",\"option_premium_est\":\"$2.50-$4.00\"}";
 };
 
-const ACKMAN_PROMPT = function(sym) {
-  return "You are Agent Ackman - an activist investor. You track insider transactions and fundamental quality for OPTIONS PLAYS.\n"
-    + "Search for: "+sym+" SEC Form 4 insider filings last 90 days, CEO/CFO/Director buying or selling.\n"
-    + "Key question: Is insider activity bullish or bearish enough to justify an options play right now?\n"
+const SOROS_PROMPT = function(sym, price) {
+  return "You are Agent Soros - a sentiment and crowd positioning specialist. You read market psychology and short term directional bias for options plays.\n"
+    + "Current price data for "+sym+": "+price+"\n\n"
+    + "Search for ALL of the following:\n"
+    + "1. Put/call ratio for "+sym+" specifically — bullish under 0.7, bearish above 1.0\n"
+    + "2. Short interest for "+sym+" — what percentage of float is short? Has it changed recently? Is a squeeze possible?\n"
+    + "3. Analyst rating changes or price target upgrades/downgrades on "+sym+" in the last 5 days\n"
+    + "4. News momentum for "+sym+" right now — is sentiment positive, negative, or neutral in last 48 hours?\n"
+    + "Key question: Does current sentiment and crowd positioning create a short term directional edge?\n"
     + "Respond in pure JSON only:\n"
-    + "{\"direction\":\"BUY\",\"conviction\":0.85,\"entry\":750,\"target\":900,\"stop\":690,"
-    + "\"reasoning\":\"CEO buying own stock signals confidence\",\"horizon_days\":5,"
-    + "\"insider_signal\":\"BUYING\",\"insider_detail\":\"CEO purchased shares recently\","
-    + "\"option_type\":\"CALL\",\"option_strike\":760,\"option_expiry\":\"5-7 days\",\"option_premium_est\":\"$3.00-$5.00\"}";
+    + "{\"direction\":\"BUY\",\"conviction\":0.75,\"entry\":750,\"target\":820,\"stop\":710,"
+    + "\"reasoning\":\"Put/call 0.65 bullish, short interest 18% rising squeeze risk, analyst upgrade yesterday\","
+    + "\"horizon_days\":3,"
+    + "\"put_call_ratio\":0.65,\"short_interest_pct\":18,\"squeeze_potential\":true,"
+    + "\"analyst_change\":\"UPGRADE — price target raised $180 to $210\","
+    + "\"news_momentum\":\"POSITIVE\","
+    + "\"option_type\":\"CALL\",\"option_strike\":755,\"option_expiry\":\"3-5 days\",\"option_premium_est\":\"$2.00-$3.50\"}";
 };
 
 const BRIEFING_PROMPT = function() {
@@ -538,7 +555,7 @@ export default function QuantDashboard() {
   }
 
   function buildCommitteeResult(symbol,results,chainData){
-    var names=["Wolf (Fundamentals)","Cohen (Price Action)","Dalio (Options Flow)","Ackman (Insider)"];
+    var names=["Wolf (Earnings)","Cohen (Technicals)","Dalio (Flow)","Soros (Sentiment)"];
     var votes={};
     for(var i=0;i<4;i++){
       try{
@@ -552,8 +569,10 @@ export default function QuantDashboard() {
         if(["BUY","SELL","HOLD"].indexOf(parsed.direction)===-1) parsed.direction="HOLD";
         if(typeof parsed.conviction!=="number") parsed.conviction=0.5;
         if(typeof parsed.reasoning!=="string") parsed.reasoning=JSON.stringify(parsed.reasoning).slice(0,200);
-        if(names[i]==="Cohen (Price Action)"&&parsed.rsi) parsed.technicals="RSI: "+parsed.rsi+" | MACD: "+(parsed.macd||"n/a")+" | MA: "+(parsed.ma_position||"n/a")+" | Sup: $"+(parsed.key_support||"?")+" | Res: $"+(parsed.key_resistance||"?");
-        if(names[i]==="Dalio (Options Flow)"&&parsed.sector_flow) parsed.flowdata="Sector: "+(parsed.sector_flow||"n/a")+" | Options: "+(parsed.options_signal||"n/a")+" | vs SPY: "+(parsed.relative_strength||"n/a");
+        if(names[i]==="Cohen (Technicals)"&&parsed.rsi) parsed.technicals="RSI: "+parsed.rsi+" | MACD: "+(parsed.macd||"n/a")+" | MA: "+(parsed.ma_position||"n/a")+" | Sup: $"+(parsed.key_support||"?")+" | Res: $"+(parsed.key_resistance||"?");
+        if(names[i]==="Dalio (Flow)"&&parsed.sector_flow) parsed.flowdata="Sector: "+(parsed.sector_flow||"n/a")+" | Options: "+(parsed.options_signal||"n/a")+" | vs SPY: "+(parsed.relative_strength||"n/a");
+        if(names[i]==="Wolf (Earnings)"&&parsed.earnings_date) parsed.earningsData="Earnings: "+(parsed.earnings_date||"?")+" | Beat streak: "+(parsed.beat_streak||"?")+"Q | Guidance up: "+(parsed.guidance_up?"YES":"NO")+" | Implied: "+(parsed.implied_move_pct||"?")+"%% vs Historical: "+(parsed.historical_move_pct||"?")+"%% | Underpriced: "+(parsed.options_underpriced?"YES":"NO");
+        if(names[i]==="Soros (Sentiment)"&&parsed.put_call_ratio!==undefined) parsed.sentimentdata="P/C: "+(parsed.put_call_ratio||"?")+" | Short int: "+(parsed.short_interest_pct||"?")+"%"+(parsed.squeeze_potential?" SQUEEZE RISK":"")+" | News: "+(parsed.news_momentum||"?")+(parsed.analyst_change?" | "+parsed.analyst_change:"");
         if(parsed.option_type) parsed.optionsplay=parsed.option_type+" | Strike: $"+(parsed.option_strike||"?")+" | Expiry: "+(parsed.option_expiry||"3-5 days")+" | Est. Premium: "+(parsed.option_premium_est||"?");
         votes[names[i]]=parsed;
       }catch(err){
@@ -561,12 +580,31 @@ export default function QuantDashboard() {
         votes[names[i]]={direction:"HOLD",conviction:0.5,reasoning:rawText};
       }
     }
+    // Base weights: Cohen 35%, Dalio 35%, Soros 20%, Wolf 10%
+    var baseWeights={"Wolf (Earnings)":0.10,"Cohen (Technicals)":0.35,"Dalio (Flow)":0.35,"Soros (Sentiment)":0.20};
+    var wolfAbstains=(votes["Wolf (Earnings)"]&&(votes["Wolf (Earnings)"].abstain===true||votes["Wolf (Earnings)"].conviction===0))||false;
+    var activeWeights=Object.assign({},baseWeights);
+    if(wolfAbstains){
+      activeWeights["Wolf (Earnings)"]=0;
+      var wolfW=baseWeights["Wolf (Earnings)"];
+      var otherTotal=baseWeights["Cohen (Technicals)"]+baseWeights["Dalio (Flow)"]+baseWeights["Soros (Sentiment)"];
+      activeWeights["Cohen (Technicals)"]=baseWeights["Cohen (Technicals)"]+(wolfW*(baseWeights["Cohen (Technicals)"]/otherTotal));
+      activeWeights["Dalio (Flow)"]=baseWeights["Dalio (Flow)"]+(wolfW*(baseWeights["Dalio (Flow)"]/otherTotal));
+      activeWeights["Soros (Sentiment)"]=baseWeights["Soros (Sentiment)"]+(wolfW*(baseWeights["Soros (Sentiment)"]/otherTotal));
+    }
+    var buyScore=0; var sellScore=0;
+    names.forEach(function(name){
+      var v=votes[name]||{}; var w=activeWeights[name]||0; var conv=v.conviction||0;
+      if(v.direction==="BUY") buyScore+=w*conv;
+      else if(v.direction==="SELL") sellScore+=w*conv;
+    });
+    var weightedScore=Math.max(buyScore,sellScore);
+    var consensus=buyScore>=sellScore&&weightedScore>=0.70?"BUY":sellScore>buyScore&&weightedScore>=0.70?"SELL":"HOLD";
     var dirs=Object.values(votes).map(function(v){ return v.direction; });
     var buys=dirs.filter(function(d){ return d==="BUY"; }).length;
     var sells=dirs.filter(function(d){ return d==="SELL"; }).length;
-    var consensus=buys>=2?"BUY":sells>=2?"SELL":"HOLD";
-    var avgConv=Object.values(votes).reduce(function(s,v){ return s+(v.conviction||0.5); },0)/4;
-    var stars=avgConv>0.75?"HIGH CONVICTION":avgConv>0.5?"MEDIUM CONVICTION":"SPECULATIVE";
+    var avgConv=weightedScore;
+    var stars=weightedScore>=0.85?"HIGH CONVICTION":weightedScore>=0.70?"MEDIUM CONVICTION":"BELOW THRESHOLD";
     var consensusVotes=Object.values(votes).filter(function(v){ return v.direction===consensus; });
     var priceSource=consensusVotes.length>0?consensusVotes:Object.values(votes);
     var entries=priceSource.filter(function(v){ return v.entry&&typeof v.entry==="number"; }).map(function(v){ return v.entry; });
@@ -587,7 +625,7 @@ export default function QuantDashboard() {
       else if(consensus==="SELL"&&stopAvg>entryAvg) validStop="$"+stopAvg.toFixed(2);
       else if(consensus==="HOLD") validStop="$"+stopAvg.toFixed(2);
     }
-    var ackV=votes["Ackman (Insider)"]||{};
+    var sorosV=votes["Soros (Sentiment)"]||{}; var wolfV=votes["Wolf (Earnings)"]||{};
     var optV=Object.values(votes).filter(function(v){ return v.option_type; });
     var callC=optV.filter(function(v){ return v.option_type==="CALL"; }).length;
     var putC=optV.filter(function(v){ return v.option_type==="PUT"; }).length;
@@ -615,9 +653,9 @@ export default function QuantDashboard() {
     var liquidityGrade=realAtm?realAtm.liquidityGrade:null;
     var dataSource=realChain?"REAL CHAIN DATA":"AI ESTIMATED";
     var maxRisk=50;
-    if(buys>=4||sells>=4) maxRisk=150;
-    else if(buys>=3||sells>=3) maxRisk=100;
-    else if(buys>=2||sells>=2) maxRisk=75;
+    if(weightedScore>=0.90) maxRisk=150;
+    else if(weightedScore>=0.80) maxRisk=100;
+    else if(weightedScore>=0.70) maxRisk=75;
     if(!liquidityOk) maxRisk=Math.min(maxRisk,50);
     var thetaWarning=null;
     if(daysToExpiry<=2) thetaWarning="HIGH THETA RISK - "+daysToExpiry+" days left, decay accelerating fast";
@@ -627,10 +665,10 @@ export default function QuantDashboard() {
     var stopLoss=premNum?"$"+(premNum*0.5).toFixed(2)+" (-50% loss) — exit immediately, do not hold":null;
     return {symbol:symbol,votes:votes,consensus:consensus,buys:buys,sells:sells,avgConv:avgConv.toFixed(2),stars:stars,
       entry:validEntry,target:validTarget,stop:validStop,
-      insiderSignal:ackV.insider_signal||"NEUTRAL",insiderDetail:ackV.insider_detail||"No recent insider activity",
+      wolfAbstaining:wolfAbstains,wolfEarnings:wolfV.earningsData||null,sorosSignal:sorosV.news_momentum||"NEUTRAL",sorosSentiment:sorosV.sentimentdata||null,squeezePotential:sorosV.squeeze_potential||false,weightedScore:weightedScore,
       consensusOptionType:conOptType,consensusStrike:avgStrike,consensusPremium:prems[0]||null,
       callCount:callC,putCount:putC,avgHorizon:avgH,tradeTypeDecision:ttd,tradeTypeReason:ttr,
-      passesCommittee:buys>=2||sells>=2,
+      passesCommittee:weightedScore>=0.70&&consensus!=="HOLD",
       delta:delta,theta:theta,openInterest:openInterest,bidAskSpread:bidAskSpread,liquidityOk:liquidityOk,
       daysToExpiry:daysToExpiry,maxRisk:maxRisk,thetaWarning:thetaWarning,takeProfit:takeProfit,stopLoss:stopLoss,
       realIV:realIV,liquidityGrade:liquidityGrade,dataSource:dataSource,stockPCRatio:realChain?realChain.stockPCRatio:null,
@@ -655,12 +693,14 @@ export default function QuantDashboard() {
     var livePrice=live.price||null;
     var priceStr="Price:$"+(live.price?live.price.toFixed(2):"?")+", Change:"+(live.change?live.change.toFixed(2):"0")+"%, High:$"+(live.high?live.high.toFixed(2):"?")+", Low:$"+(live.low?live.low.toFixed(2):"?")+", Vol:"+(live.volume||0).toLocaleString();
     var chainData = await fetchOptionsChain(symbol, livePrice);
-    var results=await Promise.all([
-      callClaude(WOLF_PROMPT(symbol),[{role:"user",content:"Analyze "+symbol+" fundamentals for options play. JSON only."}]),
-      callClaude(COHEN_PROMPT(symbol,priceStr,chainData),[{role:"user",content:"Analyze technicals for "+symbol+" options timing: "+priceStr+". Use the real chain data provided. JSON only."}],false),
-      callClaude(DALIO_PROMPT(symbol,priceStr),[{role:"user",content:"Search unusual options activity and sector flow for "+symbol+". JSON only."}]),
-      callClaude(ACKMAN_PROMPT(symbol),[{role:"user",content:"Search SEC Form 4 filings for "+symbol+". JSON only."}]),
-    ]);
+    // Run Cohen and Dalio first (always vote, most important)
+    // Then Wolf (may abstain) and Soros (always votes) with delay to avoid rate limits
+    var cohenResult = await callClaude(COHEN_PROMPT(symbol,priceStr,chainData),[{role:"user",content:"Analyze technicals for "+symbol+" options timing: "+priceStr+". Use the real chain data provided. JSON only."}],false);
+    var dalioResult = await callClaude(DALIO_PROMPT(symbol,priceStr),[{role:"user",content:"Search unusual options activity and sector flow for "+symbol+". JSON only."}]);
+    await new Promise(function(res){ setTimeout(res,5000); });
+    var wolfResult = await callClaude(WOLF_PROMPT(symbol),[{role:"user",content:"Check "+symbol+" earnings within 7 days. Abstain if none. JSON only."}]);
+    var sorosResult = await callClaude(SOROS_PROMPT(symbol,priceStr),[{role:"user",content:"Search sentiment, short interest, analyst changes for "+symbol+". JSON only."}]);
+    var results=[wolfResult,cohenResult,dalioResult,sorosResult];
     return buildCommitteeResult(symbol,results,chainData);
   }
 
@@ -854,8 +894,9 @@ export default function QuantDashboard() {
           React.createElement("span",{style:{color:consColor,fontSize:14,fontWeight:"bold"}},C.consensus),
           React.createElement("span",{style:{color:"#00ff88",fontSize:12}},"Buy: "+C.buys+"/4"),
           React.createElement("span",{style:{color:"#ff6666",fontSize:12}},"Sell: "+C.sells+"/4"),
-          React.createElement("span",{style:{color:"#aaaaaa",fontSize:11}},"Conviction: "+C.avgConv),
-          React.createElement("span",{style:{color:"#888888",fontSize:11}},"Avg hold: "+C.avgHorizon+"d")
+          React.createElement("span",{style:{color:C.weightedScore>=0.85?"#00ff88":C.weightedScore>=0.70?"#ffcc00":"#ff4444",fontSize:12,fontWeight:"bold"}},"Score: "+(C.weightedScore*100).toFixed(0)+"%"),
+          C.wolfAbstaining&&React.createElement("span",{style:{color:"#556677",fontSize:10}},"Wolf abstained"),
+          React.createElement("span",{style:{color:"#888888",fontSize:11}},"Hold: "+C.avgHorizon+"d")
         )
       ),
       React.createElement("div",{style:{padding:"12px 14px",background:"#07090f"}},
@@ -920,9 +961,9 @@ export default function QuantDashboard() {
               React.createElement("span",{style:{color:"#ffcc00",fontSize:14,fontWeight:"bold"}},"$"+C.maxRisk+" (1 contract)")
             ),
             React.createElement("div",{style:{color:"#556677",fontSize:9,marginTop:2}},
-              C.buys>=4||C.sells>=4?"4/4 agents agree — highest sizing allowed":
-              C.buys>=3||C.sells>=3?"3/4 agents agree — medium sizing":
-              "2/4 agents agree — minimum sizing, be cautious"
+              C.weightedScore>=0.90?"90%+ score — highest conviction, full sizing allowed":
+              C.weightedScore>=0.80?"80%+ score — strong signal, medium sizing":
+              "70%+ score — minimum threshold passed, be selective"
             )
           ),
           C.thetaWarning&&React.createElement("div",{style:{background:"#1a0800",borderRadius:4,padding:"7px 10px",marginBottom:8,border:"1px solid #ff884430"}},
@@ -942,7 +983,7 @@ export default function QuantDashboard() {
         ),
         !C.passesCommittee&&React.createElement("div",{style:{background:"#1a0a00",borderRadius:6,padding:"10px 14px",marginBottom:12,border:"2px solid #ff880040",textAlign:"center"}},
           React.createElement("div",{style:{color:"#ff8844",fontSize:13,fontWeight:"bold",marginBottom:4}},"COMMITTEE REJECTED"),
-          React.createElement("div",{style:{color:"#aaaaaa",fontSize:11}},"Only "+C.buys+"/4 agents agree. Need 2/4 minimum to trade. Do not buy this options play.")
+          React.createElement("div",{style:{color:"#aaaaaa",fontSize:11}},"Weighted score: "+(C.weightedScore*100).toFixed(0)+"% — below 70% threshold. Need Cohen + Dalio or stronger signal. Do not trade.")
         ),
         React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}},
           React.createElement("div",{style:{background:"#003322",border:"2px solid #00ff8850",borderRadius:6,padding:"8px",textAlign:"center"}},
@@ -958,10 +999,17 @@ export default function QuantDashboard() {
             React.createElement("div",{style:{color:"#ff6666",fontSize:11,fontWeight:"bold"}},C.stop||"-")
           )
         ),
-        C.insiderSignal&&C.insiderSignal!=="NEUTRAL"&&React.createElement("div",{style:{background:"#1a1200",borderRadius:4,padding:"6px 10px",marginBottom:8,border:"1px solid #ffaa0030"}},
-          React.createElement("span",{style:{color:"#ffaa00",fontSize:9,letterSpacing:2}},"INSIDER: "),
-          React.createElement("span",{style:{color:C.insiderSignal==="BUYING"?"#00ff88":"#ff4444",fontSize:11,fontWeight:"bold"}},"INSIDER "+C.insiderSignal+" — "),
-          React.createElement("span",{style:{color:"#888888",fontSize:10}},C.insiderDetail)
+        C.wolfEarnings&&React.createElement("div",{style:{background:"#0a1428",borderRadius:4,padding:"6px 10px",marginBottom:6,border:"1px solid #4488ff30"}},
+          React.createElement("span",{style:{color:"#4488ff",fontSize:9,letterSpacing:1}},"WOLF EARNINGS: "),
+          React.createElement("span",{style:{color:"#aaaaaa",fontSize:10}},C.wolfEarnings)
+        ),
+        C.wolfAbstaining&&React.createElement("div",{style:{background:"#0a0a0a",borderRadius:4,padding:"5px 10px",marginBottom:6,border:"1px solid #33333360"}},
+          React.createElement("span",{style:{color:"#445566",fontSize:9}},"Wolf abstained — no earnings within 7 days. Weight redistributed to Cohen, Dalio, Soros.")
+        ),
+        C.sorosSentiment&&React.createElement("div",{style:{background:"#0d0820",borderRadius:4,padding:"6px 10px",marginBottom:6,border:"1px solid #aa88ff30"}},
+          React.createElement("span",{style:{color:"#aa88ff",fontSize:9,letterSpacing:1}},"SOROS SENTIMENT: "),
+          React.createElement("span",{style:{color:C.sorosSignal==="POSITIVE"?"#00ff88":C.sorosSignal==="NEGATIVE"?"#ff4444":"#aaaaaa",fontSize:10}},C.sorosSentiment),
+          C.squeezePotential&&React.createElement("span",{style:{color:"#ffcc00",fontSize:9,marginLeft:6,fontWeight:"bold"}},"SQUEEZE RISK")
         ),
         React.createElement("div",{style:{marginBottom:10}},
           Object.entries(C.votes).map(function(e){
@@ -975,6 +1023,8 @@ export default function QuantDashboard() {
               React.createElement("div",{style:{color:"#aaaaaa",fontSize:10,lineHeight:1.4}},vote.reasoning),
               vote.technicals&&React.createElement("div",{style:{color:"#4488ff",fontSize:9,marginTop:2}},vote.technicals),
               vote.flowdata&&React.createElement("div",{style:{color:"#aa88ff",fontSize:9,marginTop:2}},vote.flowdata),
+              vote.sentimentdata&&React.createElement("div",{style:{color:"#ffcc00",fontSize:9,marginTop:2}},vote.sentimentdata),
+              vote.earningsData&&React.createElement("div",{style:{color:"#00ccff",fontSize:9,marginTop:2}},vote.earningsData),
               vote.optionsplay&&React.createElement("div",{style:{color:"#00ff88",fontSize:9,marginTop:2,fontWeight:"bold"}},"-> "+vote.optionsplay)
             );
           })
