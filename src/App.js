@@ -66,11 +66,11 @@ const COHEN_PROMPT = function(sym, price, chainData) {
         ) : "")
       + "=== END REAL CHAIN DATA ===\n"
       + "IMPORTANT: Use the REAL numbers above for your JSON output. Do NOT estimate or hallucinate options metrics. "
-      + "If OI is below 500 or spread is above $0.15, set liquidity_ok to false regardless of other factors.\n";
+      + "If OI is below 200 or spread is above $0.30, set liquidity_ok to false. For stocks under $50, spreads up to $0.30 are acceptable.\n";
   } else {
     chainSection = "\n\nNOTE: Real options chain data unavailable for " + sym + ". "
       + "Search the web for current options chain data. Be conservative with liquidity estimates — "
-      + "if you cannot confirm OI above 500 and spread under $0.15, set liquidity_ok to false.\n";
+      + "if you cannot confirm OI above 200 and spread under $0.30, set liquidity_ok to false.\n";
   }
   return "You are Agent Cohen - an elite technical analyst focused on OPTIONS TIMING. Your job is to identify the exact technical setup for a 1-5 day options play on "+sym+".\n"
     + "Current price data: "+price
@@ -78,6 +78,7 @@ const COHEN_PROMPT = function(sym, price, chainData) {
     + "Search for: RSI (14-day), MACD, 20/50-day moving averages, volume, support/resistance, Bollinger Bands.\n"
     + "Your job: technicals analysis ONLY. The options chain data above is already verified — use those exact numbers in your JSON.\n"
     + "Key question: Is the technical setup right to enter RIGHT NOW?\n"
+    + "IMPORTANT: If RSI is not overbought/oversold and price is trending, return conviction of 0.7+. Only go below 0.5 if setup is clearly bad.\n"
     + "Respond in pure JSON only:\n"
     + "{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":800,\"stop\":720,"
     + "\"reasoning\":\"MACD bullish crossover, RSI not overbought, breaking resistance\",\"horizon_days\":3,"
@@ -93,6 +94,7 @@ const DALIO_PROMPT = function(sym, price) {
     + "Current price data for "+sym+": "+price+"\n\n"
     + "Search for: unusual options activity on "+sym+" last 48 hours, sector rotation flows, institutional positioning, relative strength vs SPY.\n"
     + "Key question: Are institutions placing big call or put bets on "+sym+" right now? Follow the smart money.\n"
+    + "IMPORTANT: If you find supporting evidence, return conviction of 0.7 or higher. Only return below 0.5 if evidence is clearly negative or missing.\n"
     + "Respond in pure JSON only:\n"
     + "{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":820,\"stop\":710,"
     + "\"reasoning\":\"Unusual call volume 3x average, institutions accumulating\",\"horizon_days\":3,"
@@ -110,6 +112,7 @@ const SOROS_PROMPT = function(sym, price) {
     + "3. Analyst rating changes or price target upgrades/downgrades on "+sym+" in the last 5 days\n"
     + "4. News momentum for "+sym+" right now — is sentiment positive, negative, or neutral in last 48 hours?\n"
     + "Key question: Does current sentiment and crowd positioning create a short term directional edge?\n"
+    + "IMPORTANT: Always vote a direction — BUY or SELL. Only vote HOLD if signals are completely mixed. Return conviction of 0.65 or higher when you have clear evidence.\n"
     + "Respond in pure JSON only:\n"
     + "{\"direction\":\"BUY\",\"conviction\":0.75,\"entry\":750,\"target\":820,\"stop\":710,"
     + "\"reasoning\":\"Put/call 0.65 bullish, short interest 18% rising squeeze risk, analyst upgrade yesterday\","
@@ -152,13 +155,13 @@ const SCANNER_CANDIDATES_PROMPT = function(liveStr, regimeData, accountCash) {
   // Dynamic budget tier — scales automatically as account grows
   var maxPremium, maxStockPrice, budgetLabel, budgetNote, stockExamples;
   if (cash < 300) {
-    maxPremium = 1.00;
-    maxStockPrice = 80;
+    maxPremium = 1.50;
+    maxStockPrice = 120;
     budgetLabel = "MICRO ($250)";
-    budgetNote = "Account is under $300. Options must cost under $100 per contract total. "
-      + "Focus exclusively on low-priced stocks where ATM options are $0.30-$1.00 ask. "
-      + "Avoid any stock above $80 — options will be too expensive.";
-    stockExamples = "Examples of affordable stocks at this size: SOFI, PLTR, BAC, F, SNAP, XLE, SLV, HOOD, MARA, RIVN, NIO, VALE";
+    budgetNote = "Account is under $300. Options must cost under $150 per contract total. "
+      + "Focus on stocks where ATM options are $0.50-$1.50 ask. "
+      + "Avoid stocks above $120 — options will be too expensive.";
+    stockExamples = "Examples of affordable stocks at this size: SOFI, PLTR, BAC, F, SNAP, XLE, SLV, HOOD, MARA, RIVN, AMD (cheap strikes), UBER, COIN, PYPL, WFC, C, KEY, VALE";
   } else if (cash < 500) {
     maxPremium = 1.50;
     maxStockPrice = 120;
@@ -647,7 +650,7 @@ export default function QuantDashboard() {
     var theta=realAtm&&realAtm.theta?realAtm.theta:(cohenV.theta_daily||null);
     var openInterest=realAtm&&realAtm.openInterest?realAtm.openInterest:(cohenV.open_interest||null);
     var bidAskSpread=realAtm&&realAtm.spread?("$"+realAtm.spread):(cohenV.bid_ask_spread||null);
-    var liquidityOk=realAtm?(realAtm.openInterest>=500&&parseFloat(realAtm.spread)<=0.15):(cohenV.liquidity_ok!==false);
+    var liquidityOk=realAtm?(realAtm.openInterest>=200&&parseFloat(realAtm.spread)<=0.30):(cohenV.liquidity_ok!==false);
     var daysToExpiry=realChain&&realChain.daysToExpiry?realChain.daysToExpiry:(cohenV.days_to_expiry||avgH);
     var realIV=realAtm&&realAtm.impliedVolatility?(realAtm.impliedVolatility+"%"):null;
     var liquidityGrade=realAtm?realAtm.liquidityGrade:null;
@@ -1146,7 +1149,7 @@ export default function QuantDashboard() {
             React.createElement("div",null,
               React.createElement("span",{style:{color:"#556677",fontSize:9,letterSpacing:1}},"BUDGET TIER: "),
               React.createElement("span",{style:{color:"#ffcc00",fontSize:10,fontWeight:"bold"}},
-                cashBalance<300?"MICRO — stocks under $80":
+                cashBalance<300?"MICRO — stocks under $120":
                 cashBalance<500?"SMALL — stocks under $120":
                 cashBalance<1000?"GROWING — stocks under $200":
                 cashBalance<3000?"ESTABLISHED — stocks under $350":
@@ -1156,7 +1159,7 @@ export default function QuantDashboard() {
             React.createElement("div",null,
               React.createElement("span",{style:{color:"#556677",fontSize:9,letterSpacing:1}},"MAX PREMIUM: "),
               React.createElement("span",{style:{color:"#00ff88",fontSize:10,fontWeight:"bold"}},
-                cashBalance<300?"$100/contract":
+                cashBalance<300?"$150/contract":
                 cashBalance<500?"$150/contract":
                 cashBalance<1000?"$250/contract":
                 cashBalance<3000?"$400/contract":
