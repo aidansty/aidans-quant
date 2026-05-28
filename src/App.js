@@ -6,7 +6,7 @@ const STARTING_CASH = 250;
 const WOLF_PROMPT = function(sym) {
   return "You are Agent Wolf - an earnings catalyst specialist. Your ONLY job is to determine if "+sym+" has an earnings event within 7 days and whether that event creates a tradeable options setup.\n"
     + "Do ONE web search for: "+sym+" earnings date EPS beat history implied move 2026\n"
-    + "From that single search determine: is earnings within 7 days? If NO — abstain immediately.\n"
+    + "From that single search determine: is earnings within 7 days? If NO - abstain immediately.\n"
     + "If YES: did it beat last 3-4 quarters? Is implied move less than historical move?\n"
     + "If NO earnings within 7 days respond with abstain=true direction=HOLD conviction=0.\n"
     + "Respond in pure JSON only:\n"
@@ -25,13 +25,13 @@ const COHEN_PROMPT = function(sym, price, chainData) {
     var atm = chainData.atmCall || chainData.atmPut || {};
     var callInfo = chainData.atmCall;
     var putInfo = chainData.atmPut;
-    chainSection = "\n\n=== REAL OPTIONS CHAIN DATA (Yahoo Finance — verified, not estimated) ===\n"
+    chainSection = "\n\n=== REAL OPTIONS CHAIN DATA (Yahoo Finance - verified, not estimated) ===\n"
       + "Symbol: " + sym + " | Spot: $" + (chainData.spotPrice||"?") + "\n"
       + "Target Expiry: " + (chainData.targetExpiry||"?") + " (" + (chainData.daysToExpiry||"?") + " days out)\n"
       + "Stock Put/Call Ratio: " + (chainData.stockPCRatio||"?") + "\n"
       + "Avg Call IV: " + (chainData.avgCallIV||"?") + "\n"
       + (callInfo ? (
-          "ATM CALL — Strike: $" + callInfo.strike
+          "ATM CALL - Strike: $" + callInfo.strike
           + " | Bid: $" + callInfo.bid + " | Ask: $" + callInfo.ask
           + " | Spread: $" + callInfo.spread + " (" + callInfo.spreadPct + "%)"
           + " | OI: " + callInfo.openInterest
@@ -43,7 +43,7 @@ const COHEN_PROMPT = function(sym, price, chainData) {
           + " | Est cost: " + callInfo.estimatedCost + "\n"
         ) : "")
       + (putInfo ? (
-          "ATM PUT  — Strike: $" + putInfo.strike
+          "ATM PUT  - Strike: $" + putInfo.strike
           + " | Bid: $" + putInfo.bid + " | Ask: $" + putInfo.ask
           + " | Spread: $" + putInfo.spread + " (" + putInfo.spreadPct + "%)"
           + " | OI: " + putInfo.openInterest
@@ -65,14 +65,14 @@ const COHEN_PROMPT = function(sym, price, chainData) {
       + "If OI is below 200 or spread is above $0.30, set liquidity_ok to false. For stocks under $50, spreads up to $0.30 are acceptable.\n";
   } else {
     chainSection = "\n\nNOTE: Real options chain data unavailable for " + sym + ". "
-      + "Search the web for current options chain data. Be conservative with liquidity estimates — "
+      + "Search the web for current options chain data. Be conservative with liquidity estimates - "
       + "if you cannot confirm OI above 200 and spread under $0.30, set liquidity_ok to false.\n";
   }
   return "You are Agent Cohen - an elite technical analyst focused on OPTIONS TIMING. Your job is to identify the exact technical setup for a 1-5 day options play on "+sym+".\n"
     + "Current price data: "+price
     + chainSection + "\n"
     + "Search for: RSI (14-day), MACD, 20/50-day moving averages, volume, support/resistance, Bollinger Bands.\n"
-    + "Your job: technicals analysis ONLY. The options chain data above is already verified — use those exact numbers in your JSON.\n"
+    + "Your job: technicals analysis ONLY. The options chain data above is already verified - use those exact numbers in your JSON.\n"
     + "Key question: Is the technical setup right to enter RIGHT NOW?\n"
     + "CONVICTION SCALE: Use 0.75 as your baseline when trend is intact. Use 0.85 when setup is clean and clear. Only go below 0.65 if there is a specific technical reason not to trade.\n"
     + "Respond in pure JSON only:\n"
@@ -111,7 +111,7 @@ const SOROS_PROMPT = function(sym, price) {
     + "\"reasoning\":\"Put/call 0.65 bullish, short interest 18% rising squeeze risk, analyst upgrade yesterday\","
     + "\"horizon_days\":3,"
     + "\"put_call_ratio\":0.65,\"short_interest_pct\":18,\"squeeze_potential\":true,"
-    + "\"analyst_change\":\"UPGRADE — price target raised $180 to $210\","
+    + "\"analyst_change\":\"UPGRADE - price target raised $180 to $210\","
     + "\"news_momentum\":\"POSITIVE\","
     + "\"option_type\":\"CALL\",\"option_strike\":755,\"option_expiry\":\"3-5 days\",\"option_premium_est\":\"$2.00-$3.50\"}";
 };
@@ -145,7 +145,7 @@ const SCANNER_CANDIDATES_PROMPT = function(liveStr, regimeData, accountCash) {
   // Keep regime section concise to avoid rate limits
   var regimeShort = regime.replace(/_/g," ");
 
-  // Dynamic budget tier — scales automatically as account grows
+  // Dynamic budget tier - scales automatically as account grows
   var maxPremium, maxStockPrice, budgetLabel, budgetNote, stockExamples;
   if (cash < 300) {
     maxPremium = 1.50;
@@ -153,7 +153,7 @@ const SCANNER_CANDIDATES_PROMPT = function(liveStr, regimeData, accountCash) {
     budgetLabel = "MICRO ($250)";
     budgetNote = "Account is under $300. Options must cost under $150 per contract total. "
       + "Focus on stocks where ATM options are $0.50-$1.50 ask. "
-      + "Avoid stocks above $120 — options will be too expensive.";
+      + "Avoid stocks above $120 - options will be too expensive.";
     stockExamples = "Examples of affordable stocks at this size: SOFI, PLTR, BAC, F, SNAP, XLE, SLV, HOOD, MARA, RIVN, AMD (cheap strikes), UBER, COIN, PYPL, WFC, C, KEY, VALE";
   } else if (cash < 500) {
     maxPremium = 1.50;
@@ -190,20 +190,20 @@ const SCANNER_CANDIDATES_PROMPT = function(liveStr, regimeData, accountCash) {
   var strategySection = "";
 
   if (regime === "TRENDING_BULL") {
-    regimeSection = "REGIME: TRENDING BULL — Hunt CALL candidates. Strong uptrends, bullish catalysts, unusual call volume, sector inflows.\n";
+    regimeSection = "REGIME: TRENDING BULL - Hunt CALL candidates. Strong uptrends, bullish catalysts, unusual call volume, sector inflows.\n";
     strategySection = "Hunt calls: breakouts with catalyst, earnings beats, unusual call flow 3x+, sector leaders, oversold bounces.\n";
   } else if (regime === "TRENDING_BEAR") {
-    regimeSection = "REGIME: TRENDING BEAR — Hunt PUT candidates. Breakdowns below support, negative catalysts, unusual put volume, sector selling.\n";
+    regimeSection = "REGIME: TRENDING BEAR - Hunt PUT candidates. Breakdowns below support, negative catalysts, unusual put volume, sector selling.\n";
     strategySection = "Hunt puts: breakdowns below support, weak earnings expected, unusual put flow 3x+, sector laggards, macro headwind stocks.\n";
   } else if (regime === "HIGH_VOLATILITY") {
-    regimeSection = "REGIME: HIGH VOLATILITY VIX "+vix+" — Binary events only within 3 days. Both directions valid.\n";
+    regimeSection = "REGIME: HIGH VOLATILITY VIX "+vix+" - Binary events only within 3 days. Both directions valid.\n";
     strategySection = "Binary events only: earnings within 3 days, FDA decisions, Fed/CPI events, geopolitical sector plays.\n";
   } else if (regime === "EVENT_DRIVEN") {
-    regimeSection = "REGIME: EVENT DRIVEN — Hard catalysts within 3 days only. Both directions valid.\n";
+    regimeSection = "REGIME: EVENT DRIVEN - Hard catalysts within 3 days only. Both directions valid.\n";
     strategySection = "Catalyst plays only within 3 days: earnings, Fed/CPI, FDA, product launches, regulatory decisions.\n";
   } else {
-    // CHOPPY_NEUTRAL or UNKNOWN — conservative
-    regimeSection = "REGIME: CHOPPY NEUTRAL — Very selective. Imminent catalyst required. Size down.\n";
+    // CHOPPY_NEUTRAL or UNKNOWN - conservative
+    regimeSection = "REGIME: CHOPPY NEUTRAL - Very selective. Imminent catalyst required. Size down.\n";
     strategySection = "Conservative only: earnings within 2 days, hard catalysts, sector outliers, volatility compression plays.\n";
   }
 
@@ -219,9 +219,9 @@ const SCANNER_CANDIDATES_PROMPT = function(liveStr, regimeData, accountCash) {
     + "=== END BUDGET ===\n\n"
     + "Search the market RIGHT NOW and identify the 4 best stocks for options plays based on this regime AND budget.\n\n"
     + "Current market prices: "+liveStr+"\n\n"
-    + "REQUIREMENTS for every candidate:\\n"\n    + "- Has catalyst OR strong momentum within 1-7 days (earnings, breakout, sector move, analyst change)\\n"\n    + "- Liquid options — open interest above 100, daily stock volume above 500K\\n"\n    + "- Stock price under $"+maxStockPrice+" so options stay affordable\\n"\n    + "- ATM option ask ideally under $"+maxPremium+" per share\\n"\n    + "- Realistic path to move 3-5%+ in next 1-7 days\\n"\n    + "- Max 2 tech stocks, max 2 from same sector\\n"\n    + "- Avoid AAPL, MSFT, TSLA, NVDA, AMZN, GOOGL unless account above $500\\n\\n"
+    + "REQUIREMENTS for every candidate:\\n"\n    + "- Has catalyst OR strong momentum within 1-7 days (earnings, breakout, sector move, analyst change)\\n"\n    + "- Liquid options - open interest above 100, daily stock volume above 500K\\n"\n    + "- Stock price under $"+maxStockPrice+" so options stay affordable\\n"\n    + "- ATM option ask ideally under $"+maxPremium+" per share\\n"\n    + "- Realistic path to move 3-5%+ in next 1-7 days\\n"\n    + "- Max 2 tech stocks, max 2 from same sector\\n"\n    + "- Avoid AAPL, MSFT, TSLA, NVDA, AMZN, GOOGL unless account above $500\\n\\n"
     + strategySection
-    + "\nIMPORTANT: You are hunting for the best RISK/REWARD setups for the option CONTRACT itself — "
+    + "\nIMPORTANT: You are hunting for the best RISK/REWARD setups for the option CONTRACT itself - "
     + "not just stocks that look interesting. The question is always: can this option realistically "
     + "return 50%+ within 1-7 days based on a real catalyst AND stay within the $"+(maxPremium*100).toFixed(0)+" per contract budget?\n\n"
     + "Return ONLY pure JSON:\n"
@@ -491,7 +491,7 @@ export default function QuantDashboard() {
   }
 
   async function callClaudeJSON(system,messages){
-    // Stripped down call for JSON-only responses — no web search, lower tokens, faster
+    // Stripped down call for JSON-only responses - no web search, lower tokens, faster
     var key=process.env.REACT_APP_ANTHROPIC_API_KEY;
     var body={model:"claude-haiku-4-5-20251001",max_tokens:200,system:system,messages:messages};
     var r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify(body)});
@@ -627,7 +627,7 @@ export default function QuantDashboard() {
       :avgH<=5?"Agents see "+avgH+"-day window. Buy ATM contract expiring in 5-7 days."
       :"Agents see "+avgH+"-day window. Buy slightly ITM contract with 7+ days to give time to work.";
     var cohenV=votes["Cohen (Price Action)"]||{};
-    // Use real chain data as trusted source — fallback to Cohen's parsed values if chain unavailable
+    // Use real chain data as trusted source - fallback to Cohen's parsed values if chain unavailable
     var realChain = chainData && !chainData.error ? chainData : null;
     var realAtm = realChain ? (consensus==="SELL" ? realChain.atmPut : realChain.atmCall) : null;
     var delta=realAtm&&realAtm.delta?realAtm.delta:(cohenV.delta||null);
@@ -648,8 +648,8 @@ export default function QuantDashboard() {
     if(daysToExpiry<=2) thetaWarning="HIGH THETA RISK - "+daysToExpiry+" days left, decay accelerating fast";
     else if(daysToExpiry<=3) thetaWarning="MODERATE THETA - sell if up 40%+ before expiry";
     var premNum=prems[0]?parseFloat(prems[0].replace(/[^0-9.]/g,"")):null;
-    var takeProfit=premNum?"$"+(premNum*1.5).toFixed(2)+" (+50% gain) — take at least half off here":null;
-    var stopLoss=premNum?"$"+(premNum*0.5).toFixed(2)+" (-50% loss) — exit immediately, do not hold":null;
+    var takeProfit=premNum?"$"+(premNum*1.5).toFixed(2)+" (+50% gain) - take at least half off here":null;
+    var stopLoss=premNum?"$"+(premNum*0.5).toFixed(2)+" (-50% loss) - exit immediately, do not hold":null;
     return {symbol:symbol,votes:votes,consensus:consensus,buys:buys,sells:sells,avgConv:avgConv.toFixed(2),stars:stars,
       entry:validEntry,target:validTarget,stop:validStop,
       wolfAbstaining:wolfAbstains,wolfEarnings:wolfV.earningsData||null,sorosSignal:sorosV.news_momentum||"NEUTRAL",sorosSentiment:sorosV.sentimentdata||null,squeezePotential:sorosV.squeeze_potential||false,weightedScore:weightedScore,
@@ -711,7 +711,7 @@ export default function QuantDashboard() {
     setScanLoading(true); setScanResults([]);
     var regimeName = regime ? (regime.regime||"UNKNOWN").replace(/_/g," ") : "UNKNOWN";
     var regimeBias = regime ? (regime.bias||"NEUTRAL") : "NEUTRAL";
-    var huntingMsg = regime && regime.trade_or_wait==="WAIT" ? "Scan blocked — bad conditions"
+    var huntingMsg = regime && regime.trade_or_wait==="WAIT" ? "Scan blocked - bad conditions"
       : regime && regime.regime==="TRENDING_BEAR" ? "Hunting PUT candidates (bearish regime)..."
       : regime && regime.regime==="HIGH_VOLATILITY" ? "Hunting binary event plays (high volatility)..."
       : regime && regime.regime==="EVENT_DRIVEN" ? "Hunting catalyst plays (event driven)..."
@@ -738,7 +738,7 @@ export default function QuantDashboard() {
       var approved=[];
       for(var b=0;b<candidates.length;b++){
         var sym=candidates[b];
-        setScanStatus("Analyzing "+sym+"... ("+( b+1)+" of "+candidates.length+") — please wait");
+        setScanStatus("Analyzing "+sym+"... ("+( b+1)+" of "+candidates.length+") - please wait");
         try{
           var result=await runAgentsOnSymbol(sym);
           if(result.passesCommittee){
@@ -851,7 +851,7 @@ export default function QuantDashboard() {
     var dateSet={};
     trades.forEach(function(t){ if(t.date) dateSet[t.date]=true; });
     sessionJournal.forEach(function(j){ if(j.date) dateSet[j.date]=true; });
-    // Safe sort — compare strings directly, most recent first
+    // Safe sort - compare strings directly, most recent first
     // Dates stored as toLocaleDateString so sort by timestamp from journal when available
     return Object.keys(dateSet).sort(function(a,b){
       var ja=sessionJournal.find(function(j){ return j.date===a; });
@@ -942,15 +942,15 @@ export default function QuantDashboard() {
             )
           ),
           React.createElement("div",{style:{background:"#0a0820",borderRadius:4,padding:"8px 10px",marginBottom:8,border:"1px solid #aa88ff20"}},
-            React.createElement("div",{style:{color:"#aa88ff",fontSize:9,letterSpacing:2,marginBottom:4}},"POSITION SIZING — "+C.buys+"/4 AGENTS"),
+            React.createElement("div",{style:{color:"#aa88ff",fontSize:9,letterSpacing:2,marginBottom:4}},"POSITION SIZING - "+C.buys+"/4 AGENTS"),
             React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
               React.createElement("span",{style:{color:"#cccccc",fontSize:11}},"Recommended max risk:"),
               React.createElement("span",{style:{color:"#ffcc00",fontSize:14,fontWeight:"bold"}},"$"+C.maxRisk+" (1 contract)")
             ),
             React.createElement("div",{style:{color:"#556677",fontSize:9,marginTop:2}},
-              C.weightedScore>=0.90?"90%+ score — highest conviction, full sizing allowed":
-              C.weightedScore>=0.80?"80%+ score — strong signal, medium sizing":
-              "70%+ score — minimum threshold passed, be selective"
+              C.weightedScore>=0.90?"90%+ score - highest conviction, full sizing allowed":
+              C.weightedScore>=0.80?"80%+ score - strong signal, medium sizing":
+              "70%+ score - minimum threshold passed, be selective"
             )
           ),
           C.thetaWarning&&React.createElement("div",{style:{background:"#1a0800",borderRadius:4,padding:"7px 10px",marginBottom:8,border:"1px solid #ff884430"}},
@@ -970,7 +970,7 @@ export default function QuantDashboard() {
         ),
         !C.passesCommittee&&React.createElement("div",{style:{background:"#1a0a00",borderRadius:6,padding:"10px 14px",marginBottom:12,border:"2px solid #ff880040",textAlign:"center"}},
           React.createElement("div",{style:{color:"#ff8844",fontSize:13,fontWeight:"bold",marginBottom:4}},"COMMITTEE REJECTED"),
-          React.createElement("div",{style:{color:"#aaaaaa",fontSize:11}},"Weighted score: "+(C.weightedScore*100).toFixed(0)+"% — below 60% threshold. Need Cohen + Dalio both confident. Do not trade.")
+          React.createElement("div",{style:{color:"#aaaaaa",fontSize:11}},"Weighted score: "+(C.weightedScore*100).toFixed(0)+"% - below 60% threshold. Need Cohen + Dalio both confident. Do not trade.")
         ),
         React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}},
           React.createElement("div",{style:{background:"#003322",border:"2px solid #00ff8850",borderRadius:6,padding:"8px",textAlign:"center"}},
@@ -991,7 +991,7 @@ export default function QuantDashboard() {
           React.createElement("span",{style:{color:"#aaaaaa",fontSize:10}},C.wolfEarnings)
         ),
         C.wolfAbstaining&&React.createElement("div",{style:{background:"#0a0a0a",borderRadius:4,padding:"5px 10px",marginBottom:6,border:"1px solid #33333360"}},
-          React.createElement("span",{style:{color:"#445566",fontSize:9}},"Wolf abstained — no earnings within 7 days. Weight redistributed to Cohen, Dalio, Soros.")
+          React.createElement("span",{style:{color:"#445566",fontSize:9}},"Wolf abstained - no earnings within 7 days. Weight redistributed to Cohen, Dalio, Soros.")
         ),
         C.sorosSentiment&&React.createElement("div",{style:{background:"#0d0820",borderRadius:4,padding:"6px 10px",marginBottom:6,border:"1px solid #aa88ff30"}},
           React.createElement("span",{style:{color:"#aa88ff",fontSize:9,letterSpacing:1}},"SOROS SENTIMENT: "),
@@ -1005,7 +1005,7 @@ export default function QuantDashboard() {
             return React.createElement("div",{key:agent,style:{marginBottom:5,padding:"6px 10px",background:"#04060e",borderRadius:3,borderLeft:"3px solid "+vc}},
               React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:2}},
                 React.createElement("span",{style:{color:"#cccccc",fontSize:10,fontWeight:"bold"}},agent),
-                React.createElement("span",{style:{color:vc,fontSize:10,fontWeight:"bold"}},vote.direction+" · "+((vote.conviction||0.5)*100).toFixed(0)+"%")
+                React.createElement("span",{style:{color:vc,fontSize:10,fontWeight:"bold"}},vote.direction+" . "+((vote.conviction||0.5)*100).toFixed(0)+"%")
               ),
               React.createElement("div",{style:{color:"#aaaaaa",fontSize:10,lineHeight:1.4}},vote.reasoning),
               vote.technicals&&React.createElement("div",{style:{color:"#4488ff",fontSize:9,marginTop:2}},vote.technicals),
@@ -1017,7 +1017,7 @@ export default function QuantDashboard() {
           })
         ),
         C.passesCommittee&&React.createElement("div",{style:{display:"flex",gap:8}},
-          React.createElement("button",{style:Object.assign({},S.btn("#00ff88","linear-gradient(135deg,#003322,#006644)"),{flex:1,padding:"9px",fontSize:10}),onClick:function(){ setActiveTab("portfolio"); }},"APPROVE — LOG THIS TRADE"),
+          React.createElement("button",{style:Object.assign({},S.btn("#00ff88","linear-gradient(135deg,#003322,#006644)"),{flex:1,padding:"9px",fontSize:10}),onClick:function(){ setActiveTab("portfolio"); }},"APPROVE - LOG THIS TRADE"),
           React.createElement("button",{style:Object.assign({},S.btn("#ff4444","linear-gradient(135deg,#1a0606,#2a0000)"),{flex:1,padding:"9px",fontSize:10}),onClick:function(){
             if(manualResult&&manualResult.symbol===C.symbol) setManualResult(null);
             setScanResults(function(prev){ return prev.filter(function(r){ return r.symbol!==C.symbol; }); });
@@ -1056,7 +1056,7 @@ export default function QuantDashboard() {
           React.createElement("div",{style:{fontSize:18,fontWeight:"bold",color:"#fff"}},"Aidan's War Room"),
           React.createElement("div",{style:{fontSize:10,color:"#778899",marginTop:2}},
             React.createElement("span",{style:{color:"#aa88ff"}},"Robinhood Options"),
-            " · Goal: ",
+            " . Goal: ",
             React.createElement("span",{style:{color:"#ffcc00"}},"$250 -> $1K -> $5K -> $10K")
           )
         ),
@@ -1065,7 +1065,7 @@ export default function QuantDashboard() {
           React.createElement("div",{style:{fontSize:20,fontWeight:"bold",color:"#aa88ff"}},"$",totalValue.toFixed(2)),
           React.createElement("div",{style:{fontSize:11,color:"#778899"}},
             "Cash: ",React.createElement("span",{style:{color:"#00ff88",fontWeight:"bold"}},"$",cashBalance.toFixed(2)),
-            " · P&L: ",React.createElement("span",{style:{color:totalPnL>=0?"#00ff88":"#ff4444",fontWeight:"bold"}},(totalPnL>=0?"+":"")+totalPnL.toFixed(2))
+            " . P&L: ",React.createElement("span",{style:{color:totalPnL>=0?"#00ff88":"#ff4444",fontWeight:"bold"}},(totalPnL>=0?"+":"")+totalPnL.toFixed(2))
           )
         )
       ),
@@ -1112,20 +1112,20 @@ export default function QuantDashboard() {
             loading?"Searching macro data...":"GET MACRO MARKET BRIEFING"
           ),
           React.createElement("div",{style:{marginTop:8,marginBottom:12,padding:"8px 12px",background:"#0a0e18",borderRadius:4,border:"1px solid #1a1a2a",display:"flex",justifyContent:"space-between",alignItems:"center"}},
-            React.createElement("span",{style:{color:"#445566",fontSize:10}},"Fed · Inflation · Geopolitics · Sector Rotation · Options Environment"),
+            React.createElement("span",{style:{color:"#445566",fontSize:10}},"Fed . Inflation . Geopolitics . Sector Rotation . Options Environment"),
             React.createElement("span",{style:{color:"#aa88ff",fontSize:10,cursor:"pointer"},onClick:function(){ setActiveTab("scanner"); }},"-> OPTIONS PLAYS IN SCANNER TAB")
           ),
           briefing?React.createElement("div",{style:{background:"#070a12",border:"1px solid #1a1a2a",borderRadius:6,padding:16,lineHeight:1.65}},fmtBriefing(briefing))
           :React.createElement("div",{style:{textAlign:"center",padding:50,color:"#334455",border:"1px dashed #2a2a4a",borderRadius:4}},
             React.createElement("div",{style:{fontSize:28,marginBottom:8}},""),
             React.createElement("div",{style:{fontSize:10,letterSpacing:2,color:"#aa88ff"}},"GET MACRO CONTEXT BEFORE TRADING"),
-            React.createElement("div",{style:{fontSize:10,color:"#445566",marginTop:6}},"Fed · Inflation · Geopolitics · Options Environment"),
+            React.createElement("div",{style:{fontSize:10,color:"#445566",marginTop:6}},"Fed . Inflation . Geopolitics . Options Environment"),
             React.createElement("div",{style:{fontSize:10,color:"#334455",marginTop:4}},"Trade ideas -> SCANNER tab")
           )
         ),
 
         activeTab==="scanner"&&React.createElement("div",null,
-          React.createElement("div",{style:S.lbl},"AI OPTIONS SCANNER — 4-AGENT COMMITTEE"),
+          React.createElement("div",{style:S.lbl},"AI OPTIONS SCANNER - 4-AGENT COMMITTEE"),
           React.createElement("div",{style:{fontSize:11,color:"#778899",marginBottom:8,lineHeight:1.6}},
             "Finds the 4 best options plays today. Runs all 4 agents on each stock one at a time. Only plays with 2/4+ agent votes are shown. Takes 4-5 minutes total."
           ),
@@ -1133,11 +1133,11 @@ export default function QuantDashboard() {
             React.createElement("div",null,
               React.createElement("span",{style:{color:"#556677",fontSize:9,letterSpacing:1}},"BUDGET TIER: "),
               React.createElement("span",{style:{color:"#ffcc00",fontSize:10,fontWeight:"bold"}},
-                cashBalance<300?"MICRO — stocks under $120":
-                cashBalance<500?"SMALL — stocks under $120":
-                cashBalance<1000?"GROWING — stocks under $200":
-                cashBalance<3000?"ESTABLISHED — stocks under $350":
-                "ADVANCED — full universe"
+                cashBalance<300?"MICRO - stocks under $120":
+                cashBalance<500?"SMALL - stocks under $120":
+                cashBalance<1000?"GROWING - stocks under $200":
+                cashBalance<3000?"ESTABLISHED - stocks under $350":
+                "ADVANCED - full universe"
               )
             ),
             React.createElement("div",null,
@@ -1155,7 +1155,7 @@ export default function QuantDashboard() {
 
           React.createElement("div",{style:{background:"#07090f",border:"1px solid #1a2a3a",borderRadius:6,padding:"12px 14px",marginBottom:12}},
             React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
-              React.createElement("span",{style:{color:"#00ccff",fontSize:10,letterSpacing:2}},"OPTIONCHARTS DATA — SPY MARKET INPUTS"),
+              React.createElement("span",{style:{color:"#00ccff",fontSize:10,letterSpacing:2}},"OPTIONCHARTS DATA - SPY MARKET INPUTS"),
               optionsInputSaved&&React.createElement("span",{style:{color:"#00ff88",fontSize:10}},"SAVED")
             ),
             React.createElement("div",{style:{fontSize:10,color:"#445566",marginBottom:10}},"Enter from optioncharts.io/options/SPY before running regime. Takes 30 seconds and makes regime significantly more accurate."),
@@ -1172,7 +1172,7 @@ export default function QuantDashboard() {
                   })
                 }),
                 spyIVRank&&React.createElement("div",{style:{fontSize:9,marginTop:3,color:parseFloat(spyIVRank)<30?"#00ff88":parseFloat(spyIVRank)>60?"#ff4444":"#ffcc00"}},
-                  parseFloat(spyIVRank)<30?"Premiums cheap — good time to buy":parseFloat(spyIVRank)>60?"Premiums expensive — size down":"Premiums normal"
+                  parseFloat(spyIVRank)<30?"Premiums cheap - good time to buy":parseFloat(spyIVRank)>60?"Premiums expensive - size down":"Premiums normal"
                 )
               ),
               React.createElement("div",null,
@@ -1187,12 +1187,12 @@ export default function QuantDashboard() {
                   })
                 }),
                 spyPCRatio&&React.createElement("div",{style:{fontSize:9,marginTop:3,color:parseFloat(spyPCRatio)<0.7?"#00ff88":parseFloat(spyPCRatio)>1.0?"#ff4444":"#ffcc00"}},
-                  parseFloat(spyPCRatio)<0.7?"Market bullish — calls favored":parseFloat(spyPCRatio)>1.5?"Extreme fear — potential reversal":parseFloat(spyPCRatio)>1.0?"Fear rising — lean bearish":"Neutral positioning"
+                  parseFloat(spyPCRatio)<0.7?"Market bullish - calls favored":parseFloat(spyPCRatio)>1.5?"Extreme fear - potential reversal":parseFloat(spyPCRatio)>1.0?"Fear rising - lean bearish":"Neutral positioning"
                 )
               )
             ),
             React.createElement("div",{style:{marginBottom:8}},
-              React.createElement("div",{style:{color:"#556677",fontSize:9,letterSpacing:1,marginBottom:3}},"UNUSUAL ACTIVITY (optional — from Market Trends tab)"),
+              React.createElement("div",{style:{color:"#556677",fontSize:9,letterSpacing:1,marginBottom:3}},"UNUSUAL ACTIVITY (optional - from Market Trends tab)"),
               React.createElement("input",{
                 placeholder:"e.g. NVDA unusual call volume 5x, XLE put sweep",
                 value:unusualTicker,
@@ -1203,7 +1203,7 @@ export default function QuantDashboard() {
             React.createElement("button",{
               onClick:saveOptionsInputs,
               style:Object.assign({},S.btn("#00ccff","linear-gradient(135deg,#001a2a,#002a3a)"),{padding:"8px",fontSize:10})
-            },"SAVE — REGIME WILL USE THESE INPUTS")
+            },"SAVE - REGIME WILL USE THESE INPUTS")
           ),
 
           React.createElement("div",{style:{marginBottom:12}},
@@ -1234,7 +1234,7 @@ export default function QuantDashboard() {
                   fontSize:16,fontWeight:"bold"
                 }},
                   regime.trade_or_wait==="TRADE"?"CONDITIONS FAVORABLE":
-                  regime.trade_or_wait==="WAIT"?"WAIT — BAD CONDITIONS":"CAUTION"
+                  regime.trade_or_wait==="WAIT"?"WAIT - BAD CONDITIONS":"CAUTION"
                 )
               ),
               React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:10}},
@@ -1287,7 +1287,7 @@ export default function QuantDashboard() {
             )
           ),
           React.createElement("button",{onClick:runMarketScan,disabled:scanLoading||(regime&&regime.trade_or_wait==="WAIT"),style:Object.assign({},S.btn(),(regime&&regime.trade_or_wait==="WAIT")?{opacity:0.4,cursor:"not-allowed"}:{})},
-            scanLoading?"SCANNING... (4-5 minutes, one stock at a time)":regime&&regime.trade_or_wait==="WAIT"?"SCAN BLOCKED — BAD MARKET CONDITIONS":regime&&regime.regime==="TRENDING_BEAR"?"SCAN — HUNTING PUTS (BEARISH REGIME)":regime&&regime.regime==="HIGH_VOLATILITY"?"SCAN — BINARY EVENT PLAYS ONLY":regime&&regime.regime==="EVENT_DRIVEN"?"SCAN — CATALYST PLAYS ONLY":regime&&regime.regime==="CHOPPY_NEUTRAL"?"SCAN — CONSERVATIVE MODE":"SCAN — HUNTING CALLS (BULL REGIME)"
+            scanLoading?"SCANNING... (4-5 minutes, one stock at a time)":regime&&regime.trade_or_wait==="WAIT"?"SCAN BLOCKED - BAD MARKET CONDITIONS":regime&&regime.regime==="TRENDING_BEAR"?"SCAN - HUNTING PUTS (BEARISH REGIME)":regime&&regime.regime==="HIGH_VOLATILITY"?"SCAN - BINARY EVENT PLAYS ONLY":regime&&regime.regime==="EVENT_DRIVEN"?"SCAN - CATALYST PLAYS ONLY":regime&&regime.regime==="CHOPPY_NEUTRAL"?"SCAN - CONSERVATIVE MODE":"SCAN - HUNTING CALLS (BULL REGIME)"
           ),
           scanStatus&&React.createElement("div",{style:{marginTop:8,marginBottom:8,padding:"8px 12px",background:"#0a0e18",borderRadius:4,border:"1px solid #1a1a2a",color:scanLoading?"#ffcc00":"#aa88ff",fontSize:11,letterSpacing:1}},scanStatus),
           scanResults.length>0&&React.createElement("div",{style:{marginTop:12}},
@@ -1346,7 +1346,7 @@ export default function QuantDashboard() {
                   React.createElement("div",{style:{background:"#ff000015",borderRadius:4,padding:"6px 8px",textAlign:"center",border:"1px solid #ff444420"}},React.createElement("div",{style:{color:"#ff4444aa",fontSize:9,marginBottom:2}},"MAX LOSS"),React.createElement("div",{style:{color:"#ff6666",fontSize:14,fontWeight:"bold"}},"$"+totalCost.toFixed(0)))
                 ),
                 days!==null&&days<=1&&React.createElement("div",{style:{background:"#2a0000",borderRadius:4,padding:"8px 10px",marginBottom:8,border:"1px solid #ff222240",textAlign:"center"}},
-                  React.createElement("span",{style:{color:"#ff2222",fontSize:12,fontWeight:"bold"}},(days<=0?"EXPIRED — ":"EXPIRING TODAY — ")+"CLOSE ON ROBINHOOD NOW OR LOSE EVERYTHING")
+                  React.createElement("span",{style:{color:"#ff2222",fontSize:12,fontWeight:"bold"}},(days<=0?"EXPIRED - ":"EXPIRING TODAY - ")+"CLOSE ON ROBINHOOD NOW OR LOSE EVERYTHING")
                 ),
                 o.note&&React.createElement("div",{style:{color:"#667788",fontSize:10,marginBottom:8}},o.note),
                 React.createElement("div",{style:{display:"flex",gap:6}},
@@ -1383,7 +1383,7 @@ export default function QuantDashboard() {
               React.createElement("span",{style:{color:"#445566",fontSize:10}},"of $"+cashBalance.toFixed(2)+" available")
             ),
             React.createElement("input",{placeholder:"Note e.g. Scanner approved 3/4 bullish MACD crossover",value:optionForm.note,onChange:function(e){ setOptionForm(Object.assign({},optionForm,{note:e.target.value})); },style:Object.assign({},S.inp,{marginBottom:8})}),
-            React.createElement("button",{onClick:logOptionTrade,style:S.btn()},"CONFIRM — LOG OPTIONS TRADE")
+            React.createElement("button",{onClick:logOptionTrade,style:S.btn()},"CONFIRM - LOG OPTIONS TRADE")
           ),
           React.createElement("div",{style:Object.assign({},S.card,{marginTop:8,border:"1px solid #1a2a3a"})},
             React.createElement("div",{style:S.lbl},"SET CASH BALANCE"),
@@ -1424,7 +1424,7 @@ export default function QuantDashboard() {
               {label:"Contracts per trade",rule:"1 contract until $1,000"},
               {label:"Min agent votes",rule:"2/4 agents must agree"},
               {label:"Max expiry",rule:"7 days out maximum"},
-              {label:"Take profit at",rule:"50%+ gain — don't get greedy"},
+              {label:"Take profit at",rule:"50%+ gain - don't get greedy"},
               {label:"Never hold to expiry",rule:"Sell the day before at latest"},
             ].map(function(r){
               return React.createElement("div",{key:r.label,style:{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #08080a"}},
@@ -1435,7 +1435,7 @@ export default function QuantDashboard() {
           ),
           React.createElement("div",{style:S.card},
             React.createElement("div",{style:S.lbl},"ACTIVE ALERTS (",riskAlerts.length,")"),
-            riskAlerts.length===0?React.createElement("div",{style:{color:"#aa88ff66",fontSize:12,textAlign:"center",padding:20}},"All clear — no active risk alerts")
+            riskAlerts.length===0?React.createElement("div",{style:{color:"#aa88ff66",fontSize:12,textAlign:"center",padding:20}},"All clear - no active risk alerts")
             :riskAlerts.map(function(a,idx){
               return React.createElement("div",{key:idx,style:{padding:"7px 10px",background:"#05070e",borderRadius:3,marginBottom:6,borderLeft:"3px solid "+a.color}},
                 React.createElement("div",{style:{color:a.color,fontSize:11,fontWeight:"bold"}},a.msg)
@@ -1452,7 +1452,7 @@ export default function QuantDashboard() {
                   React.createElement("span",{style:{color:"#ddd",fontWeight:"bold",fontSize:12}},o.symbol+" "+o.optionType+" $"+o.strike),
                   React.createElement("span",{style:{color:uc,fontSize:11,fontWeight:"bold"}},(days!==null?(days<=0?"EXPIRED":days+" days left"):"exp: "+o.expiry))
                 ),
-                React.createElement("div",{style:{color:"#667788",fontSize:10,marginTop:2}},o.contracts+" contract · paid $"+o.premium+" · total at risk $"+(o.contracts*o.premium*100).toFixed(0))
+                React.createElement("div",{style:{color:"#667788",fontSize:10,marginTop:2}},o.contracts+" contract . paid $"+o.premium+" . total at risk $"+(o.contracts*o.premium*100).toFixed(0))
               );
             })
           ),
@@ -1495,10 +1495,10 @@ export default function QuantDashboard() {
           React.createElement("button",{
             onClick:function(){ setJournalOpen(function(o){ return !o; }); },
             style:Object.assign({},S.btn("#00ccff","linear-gradient(135deg,#001a2a,#002a3a)"),{marginBottom:10,padding:"10px",fontSize:10})
-          },journalOpen?"CANCEL SESSION LOG":"LOG TODAY'S SESSION — TRADE OR NO TRADE"),
+          },journalOpen?"CANCEL SESSION LOG":"LOG TODAY'S SESSION - TRADE OR NO TRADE"),
 
           journalOpen&&React.createElement("div",{style:{background:"#07090f",border:"1px solid #00ccff30",borderRadius:6,padding:"12px 14px",marginBottom:12}},
-            React.createElement("div",{style:{color:"#00ccff",fontSize:10,letterSpacing:2,marginBottom:10}},"SESSION LOG — "+new Date().toLocaleDateString()),
+            React.createElement("div",{style:{color:"#00ccff",fontSize:10,letterSpacing:2,marginBottom:10}},"SESSION LOG - "+new Date().toLocaleDateString()),
             React.createElement("div",{style:{marginBottom:8}},
               React.createElement("div",{style:{color:"#556677",fontSize:9,letterSpacing:1,marginBottom:6}},"SESSION STATUS"),
               React.createElement("div",{style:{display:"flex",gap:6}},
@@ -1612,7 +1612,7 @@ export default function QuantDashboard() {
                     )
                   ):React.createElement("div",null,
                     React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
-                      React.createElement("span",{style:{color:"#aaaaaa",fontSize:11}},t.contracts+" contract · exp: "+t.expiry),
+                      React.createElement("span",{style:{color:"#aaaaaa",fontSize:11}},t.contracts+" contract . exp: "+t.expiry),
                       React.createElement("div",null,
                         isBuy?React.createElement("span",{style:{color:"#ff8844",fontSize:12}},"Cost: $"+t.total.toFixed(0))
                         :React.createElement("span",{style:{color:t.pnl>=0?"#00ff88":"#ff4444",fontSize:13,fontWeight:"bold"}},(t.pnl>=0?"+":"")+t.pnl.toFixed(2)+" P&L")
@@ -1628,11 +1628,11 @@ export default function QuantDashboard() {
 
         activeTab==="chat"&&React.createElement("div",null,
           React.createElement("div",{style:S.lbl},"ASK YOUR QUANT"),
-          React.createElement("div",{style:{fontSize:10,color:"#445566",marginBottom:10}},"Ask anything — options plays, stock analysis, market questions, strategy. Your account size and positions are always known."),
+          React.createElement("div",{style:{fontSize:10,color:"#445566",marginBottom:10}},"Ask anything - options plays, stock analysis, market questions, strategy. Your account size and positions are always known."),
           React.createElement("div",{style:{background:"#04060e",border:"1px solid #0a0a1a",borderRadius:4,padding:12,minHeight:220,maxHeight:420,overflowY:"auto",marginBottom:10}},
             chatHistory.length===0?React.createElement("div",{style:{color:"#334455",fontSize:10,letterSpacing:2,textAlign:"center",marginTop:70}},
               React.createElement("div",{style:{fontSize:24,marginBottom:8}},""),
-              React.createElement("div",null,"ASK ANYTHING — OPTIONS, STOCKS, STRATEGY, MARKET"),
+              React.createElement("div",null,"ASK ANYTHING - OPTIONS, STOCKS, STRATEGY, MARKET"),
               React.createElement("div",{style:{color:"#aa88ff",marginTop:8,fontSize:10}},"Account size and positions always factored into recommendations")
             ):chatHistory.map(function(m,idx){
               return React.createElement("div",{key:idx,style:{marginBottom:14}},
