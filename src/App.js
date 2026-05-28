@@ -74,7 +74,7 @@ const COHEN_PROMPT = function(sym, price, chainData) {
     + "Search for: RSI (14-day), MACD, 20/50-day moving averages, volume, support/resistance, Bollinger Bands.\n"
     + "Your job: technicals analysis ONLY. The options chain data above is already verified — use those exact numbers in your JSON.\n"
     + "Key question: Is the technical setup right to enter RIGHT NOW?\n"
-    + "IMPORTANT: If RSI is not overbought/oversold and price is trending, return conviction of 0.7+. Only go below 0.5 if setup is clearly bad.\n"
+    + "CONVICTION SCALE: Use 0.75 as your baseline when trend is intact. Use 0.85 when setup is clean and clear. Only go below 0.65 if there is a specific technical reason not to trade.\n"
     + "Respond in pure JSON only:\n"
     + "{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":800,\"stop\":720,"
     + "\"reasoning\":\"MACD bullish crossover, RSI not overbought, breaking resistance\",\"horizon_days\":3,"
@@ -90,7 +90,7 @@ const DALIO_PROMPT = function(sym, price) {
     + "Current price data for "+sym+": "+price+"\n\n"
     + "Do ONE web search for: "+sym+" unusual options activity institutional flow sector 2026\n"
     + "Key question: Are institutions placing big bets on "+sym+" right now?\n"
-    + "IMPORTANT: Return conviction 0.7+ when you find supporting evidence. Only go below 0.5 if evidence is clearly absent.\n"
+    + "CONVICTION SCALE: Use 0.75 as your baseline when flow exists. Use 0.85 when unusual activity is clear and strong. Only drop below 0.60 if flow is specifically negative or absent.\n"
     + "Respond in pure JSON only:\n"
     + "{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":820,\"stop\":710,"
     + "\"reasoning\":\"Unusual call volume 3x average, institutions accumulating\",\"horizon_days\":3,"
@@ -105,7 +105,7 @@ const SOROS_PROMPT = function(sym, price) {
     + "Do ONE web search for: "+sym+" options sentiment short interest analyst rating news 2026\n"
     + "From that single search extract: put/call ratio, short interest %, any analyst upgrades/downgrades last 5 days, news momentum positive or negative.\n"
     + "Key question: Does sentiment create a short term directional edge?\n"
-    + "IMPORTANT: Always vote BUY or SELL — never HOLD unless signals completely contradict. Return conviction 0.65+ when evidence supports it.\n"
+    + "CONVICTION SCALE: Use 0.75 as your baseline when sentiment leans one direction. Use 0.85 when multiple sentiment signals align. Only vote HOLD if put/call, short interest, AND news all point different directions simultaneously.\n"
     + "Respond in pure JSON only:\n"
     + "{\"direction\":\"BUY\",\"conviction\":0.75,\"entry\":750,\"target\":820,\"stop\":710,"
     + "\"reasoning\":\"Put/call 0.65 bullish, short interest 18% rising squeeze risk, analyst upgrade yesterday\","
@@ -219,16 +219,7 @@ const SCANNER_CANDIDATES_PROMPT = function(liveStr, regimeData, accountCash) {
     + "=== END BUDGET ===\n\n"
     + "Search the market RIGHT NOW and identify the 4 best stocks for options plays based on this regime AND budget.\n\n"
     + "Current market prices: "+liveStr+"\n\n"
-    + "NON-NEGOTIABLE REQUIREMENTS for every candidate:\n"
-    + "- Must have a REAL catalyst with a specific date within 1-7 days\n"
-    + "- Must have liquid options (open interest above 500, volume above 100K daily minimum)\n"
-    + "- Stock price MUST be under $"+maxStockPrice+" — options must be affordable\n"
-    + "- ATM option ask price MUST be under $"+maxPremium+" per share ($"+(maxPremium*100).toFixed(0)+" per contract)\n"
-    + "- Premium must NOT already be overpriced relative to expected move\n"
-    + "- Must have realistic path to 50%+ gain on the option contract within 1-7 days\n"
-    + "- Max 2 tech stocks across all 6 candidates\n"
-    + "- Diversify across sectors — no more than 2 from same sector\n"
-    + "- DO NOT suggest AAPL, MSFT, TSLA, NVDA, AMZN, GOOGL, SPY unless account is above $500\n\n"
+    + "REQUIREMENTS for every candidate:\\n"\n    + "- Has catalyst OR strong momentum within 1-7 days (earnings, breakout, sector move, analyst change)\\n"\n    + "- Liquid options — open interest above 100, daily stock volume above 500K\\n"\n    + "- Stock price under $"+maxStockPrice+" so options stay affordable\\n"\n    + "- ATM option ask ideally under $"+maxPremium+" per share\\n"\n    + "- Realistic path to move 3-5%+ in next 1-7 days\\n"\n    + "- Max 2 tech stocks, max 2 from same sector\\n"\n    + "- Avoid AAPL, MSFT, TSLA, NVDA, AMZN, GOOGL unless account above $500\\n\\n"
     + strategySection
     + "\nIMPORTANT: You are hunting for the best RISK/REWARD setups for the option CONTRACT itself — "
     + "not just stocks that look interesting. The question is always: can this option realistically "
@@ -979,7 +970,7 @@ export default function QuantDashboard() {
         ),
         !C.passesCommittee&&React.createElement("div",{style:{background:"#1a0a00",borderRadius:6,padding:"10px 14px",marginBottom:12,border:"2px solid #ff880040",textAlign:"center"}},
           React.createElement("div",{style:{color:"#ff8844",fontSize:13,fontWeight:"bold",marginBottom:4}},"COMMITTEE REJECTED"),
-          React.createElement("div",{style:{color:"#aaaaaa",fontSize:11}},"Weighted score: "+(C.weightedScore*100).toFixed(0)+"% — below 60% threshold. Need Cohen + Dalio or stronger signal. Do not trade.")
+          React.createElement("div",{style:{color:"#aaaaaa",fontSize:11}},"Weighted score: "+(C.weightedScore*100).toFixed(0)+"% — below 60% threshold. Need Cohen + Dalio both confident. Do not trade.")
         ),
         React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}},
           React.createElement("div",{style:{background:"#003322",border:"2px solid #00ff8850",borderRadius:6,padding:"8px",textAlign:"center"}},
