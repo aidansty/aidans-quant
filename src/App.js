@@ -1031,7 +1031,7 @@ export default function QuantDashboard() {
     var lines=text.split("\n"),output=[];
     lines.forEach(function(line,i){
       var lt=line.trim();
-      if(/^[📊🏦📅🌍⚠️💡]/.test(lt)) output.push(React.createElement("div",{key:i,style:{color:"#aa88ff",fontWeight:"bold",marginTop:20,marginBottom:8,fontSize:14,borderBottom:"2px solid #aa88ff25",paddingBottom:6}},lt));
+      if(lt.length>0&&(lt.charCodeAt(0)>127||lt.startsWith("MARKET")||lt.startsWith("MACRO")||lt.startsWith("KEY")||lt.startsWith("SECTOR")||lt.startsWith("RISK")||lt.startsWith("OPTIONS"))) output.push(React.createElement("div",{key:i,style:{color:"#aa88ff",fontWeight:"bold",marginTop:20,marginBottom:8,fontSize:14,borderBottom:"2px solid #aa88ff25",paddingBottom:6}},lt));
       else if(lt.startsWith("|")&&!lt.includes("---")){
         var cells=lt.split("|").filter(function(c){ return c.trim(); });
         var isHdr=i+1<lines.length&&(lines[i+1]||"").includes("---");
