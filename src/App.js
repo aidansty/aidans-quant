@@ -5,14 +5,10 @@ const STARTING_CASH = 250;
 
 const WOLF_PROMPT = function(sym) {
   return "You are Agent Wolf - an earnings catalyst specialist. Your ONLY job is to determine if "+sym+" has an earnings event within 7 days and whether that event creates a tradeable options setup.\n"
-    + "STEP 1: Search for "+sym+" next earnings date. Is it within the next 7 days? If NO earnings within 7 days, you MUST abstain.\n"
-    + "STEP 2 (only if earnings within 7 days): Search for:\n"
-    + "- Has "+sym+" beaten EPS estimates in each of the last 4 quarters? Yes or no per quarter.\n"
-    + "- Did guidance trend upward last quarter?\n"
-    + "- What is the options market implied move for earnings? What is the historical average post-earnings move?\n"
-    + "- Is the implied move LESS than the historical move? If yes, options are underpriced — strong signal.\n"
-    + "If NO earnings within 7 days respond with abstain=true and direction=HOLD conviction=0.\n"
-    + "If earnings within 7 days respond with full analysis.\n"
+    + "Do ONE web search for: "+sym+" earnings date EPS beat history implied move 2026\n"
+    + "From that single search determine: is earnings within 7 days? If NO — abstain immediately.\n"
+    + "If YES: did it beat last 3-4 quarters? Is implied move less than historical move?\n"
+    + "If NO earnings within 7 days respond with abstain=true direction=HOLD conviction=0.\n"
     + "Respond in pure JSON only:\n"
     + "{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":850,\"stop\":695,"
     + "\"reasoning\":\"Earnings in 3 days, beat 4/4 last quarters, implied move 5% vs historical 9%\","
@@ -92,9 +88,9 @@ const COHEN_PROMPT = function(sym, price, chainData) {
 const DALIO_PROMPT = function(sym, price) {
   return "You are Agent Dalio - an institutional options flow specialist. You track where big money is placing options bets right now.\n"
     + "Current price data for "+sym+": "+price+"\n\n"
-    + "Search for: unusual options activity on "+sym+" last 48 hours, sector rotation flows, institutional positioning, relative strength vs SPY.\n"
-    + "Key question: Are institutions placing big call or put bets on "+sym+" right now? Follow the smart money.\n"
-    + "IMPORTANT: If you find supporting evidence, return conviction of 0.7 or higher. Only return below 0.5 if evidence is clearly negative or missing.\n"
+    + "Do ONE web search for: "+sym+" unusual options activity institutional flow sector 2026\n"
+    + "Key question: Are institutions placing big bets on "+sym+" right now?\n"
+    + "IMPORTANT: Return conviction 0.7+ when you find supporting evidence. Only go below 0.5 if evidence is clearly absent.\n"
     + "Respond in pure JSON only:\n"
     + "{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":820,\"stop\":710,"
     + "\"reasoning\":\"Unusual call volume 3x average, institutions accumulating\",\"horizon_days\":3,"
@@ -106,13 +102,10 @@ const DALIO_PROMPT = function(sym, price) {
 const SOROS_PROMPT = function(sym, price) {
   return "You are Agent Soros - a sentiment and crowd positioning specialist. You read market psychology and short term directional bias for options plays.\n"
     + "Current price data for "+sym+": "+price+"\n\n"
-    + "Search for ALL of the following:\n"
-    + "1. Put/call ratio for "+sym+" specifically — bullish under 0.7, bearish above 1.0\n"
-    + "2. Short interest for "+sym+" — what percentage of float is short? Has it changed recently? Is a squeeze possible?\n"
-    + "3. Analyst rating changes or price target upgrades/downgrades on "+sym+" in the last 5 days\n"
-    + "4. News momentum for "+sym+" right now — is sentiment positive, negative, or neutral in last 48 hours?\n"
-    + "Key question: Does current sentiment and crowd positioning create a short term directional edge?\n"
-    + "IMPORTANT: Always vote a direction — BUY or SELL. Only vote HOLD if signals are completely mixed. Return conviction of 0.65 or higher when you have clear evidence.\n"
+    + "Do ONE web search for: "+sym+" options sentiment short interest analyst rating news 2026\n"
+    + "From that single search extract: put/call ratio, short interest %, any analyst upgrades/downgrades last 5 days, news momentum positive or negative.\n"
+    + "Key question: Does sentiment create a short term directional edge?\n"
+    + "IMPORTANT: Always vote BUY or SELL — never HOLD unless signals completely contradict. Return conviction 0.65+ when evidence supports it.\n"
     + "Respond in pure JSON only:\n"
     + "{\"direction\":\"BUY\",\"conviction\":0.75,\"entry\":750,\"target\":820,\"stop\":710,"
     + "\"reasoning\":\"Put/call 0.65 bullish, short interest 18% rising squeeze risk, analyst upgrade yesterday\","
@@ -700,7 +693,7 @@ export default function QuantDashboard() {
     // Then Wolf (may abstain) and Soros (always votes) with delay to avoid rate limits
     var cohenResult = await callClaude(COHEN_PROMPT(symbol,priceStr,chainData),[{role:"user",content:"Analyze technicals for "+symbol+" options timing: "+priceStr+". Use the real chain data provided. JSON only."}],false);
     var dalioResult = await callClaude(DALIO_PROMPT(symbol,priceStr),[{role:"user",content:"Search unusual options activity and sector flow for "+symbol+". JSON only."}]);
-    await new Promise(function(res){ setTimeout(res,5000); });
+    await new Promise(function(res){ setTimeout(res,8000); });
     var wolfResult = await callClaude(WOLF_PROMPT(symbol),[{role:"user",content:"Check "+symbol+" earnings within 7 days. Abstain if none. JSON only."}]);
     var sorosResult = await callClaude(SOROS_PROMPT(symbol,priceStr),[{role:"user",content:"Search sentiment, short interest, analyst changes for "+symbol+". JSON only."}]);
     var results=[wolfResult,cohenResult,dalioResult,sorosResult];
@@ -763,8 +756,8 @@ export default function QuantDashboard() {
           }
         }catch(e){ console.warn("Agent error on "+sym+":",e.message); }
         if(b<candidates.length-1){
-          setScanStatus("Pausing 15 seconds before next stock to avoid rate limits...");
-          await new Promise(function(res){ setTimeout(res,15000); });
+          setScanStatus("Pausing 20 seconds before next stock...");
+          await new Promise(function(res){ setTimeout(res,20000); });
         }
       }
       if(approved.length===0) setScanStatus("Scan complete. No plays passed the 4-agent committee today. Use manual symbol check for specific stocks.");
