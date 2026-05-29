@@ -580,7 +580,7 @@ export default function QuantDashboard() {
     setLoading(false);
   }
 
-  function buildCommitteeResult(symbol,results,chainData){
+  function buildCommitteeResult(symbol,results,chainData,currentRegime){
     var names=["Wolf (Earnings)","Cohen (Technicals)","Dalio (Flow)","Soros (Sentiment)"];
     var votes={};
     for(var i=0;i<4;i++){
@@ -625,8 +625,27 @@ export default function QuantDashboard() {
         votes[names[i]]={direction:"HOLD",conviction:0.5,reasoning:rawText};
       }
     }
-    // Base weights: Cohen 35%, Dalio 35%, Soros 20%, Wolf 10%
-    var baseWeights={"Wolf (Earnings)":0.10,"Cohen (Technicals)":0.35,"Dalio (Flow)":0.35,"Soros (Sentiment)":0.20};
+    // Dynamic weights based on regime - different market conditions favor different agents
+    var regimeStr = currentRegime ? (currentRegime.regime||"UNKNOWN") : "UNKNOWN";
+    var baseWeights;
+    var weightLabel;
+    if(regimeStr==="TRENDING_BULL"||regimeStr==="TRENDING_BEAR"){
+      // Trending markets - technicals matter most, flow confirms
+      baseWeights={"Wolf (Earnings)":0.10,"Cohen (Technicals)":0.40,"Dalio (Flow)":0.30,"Soros (Sentiment)":0.20};
+      weightLabel="TREND MODE: Cohen 40% Dalio 30% Soros 20% Wolf 10%";
+    } else if(regimeStr==="HIGH_VOLATILITY"){
+      // High volatility - flow and sentiment drive moves, technicals less reliable
+      baseWeights={"Wolf (Earnings)":0.10,"Cohen (Technicals)":0.25,"Dalio (Flow)":0.40,"Soros (Sentiment)":0.25};
+      weightLabel="VOLATILITY MODE: Dalio 40% Cohen 25% Soros 25% Wolf 10%";
+    } else if(regimeStr==="EVENT_DRIVEN"){
+      // Event driven - Wolf earns full weight, flow and sentiment matter, chart less important
+      baseWeights={"Wolf (Earnings)":0.25,"Cohen (Technicals)":0.25,"Dalio (Flow)":0.30,"Soros (Sentiment)":0.20};
+      weightLabel="EVENT MODE: Wolf 25% Dalio 30% Cohen 25% Soros 20%";
+    } else {
+      // Choppy or unknown - balanced but cautious
+      baseWeights={"Wolf (Earnings)":0.10,"Cohen (Technicals)":0.35,"Dalio (Flow)":0.35,"Soros (Sentiment)":0.20};
+      weightLabel="BALANCED MODE: Cohen 35% Dalio 35% Soros 20% Wolf 10%";
+    }
     var wolfAbstains=(votes["Wolf (Earnings)"]&&(votes["Wolf (Earnings)"].abstain===true||votes["Wolf (Earnings)"].conviction===0))||false;
     var activeWeights=Object.assign({},baseWeights);
     if(wolfAbstains){
@@ -710,7 +729,7 @@ export default function QuantDashboard() {
     var stopLoss=premNum?"$"+(premNum*0.5).toFixed(2)+" (-50% loss) - exit immediately, do not hold":null;
     return {symbol:symbol,votes:votes,consensus:consensus,buys:buys,sells:sells,avgConv:avgConv.toFixed(2),stars:stars,
       entry:validEntry,target:validTarget,stop:validStop,
-      wolfAbstaining:wolfAbstains,wolfEarnings:wolfV.earningsData||null,sorosSignal:sorosV.news_momentum||"NEUTRAL",sorosSentiment:sorosV.sentimentdata||null,squeezePotential:sorosV.squeeze_potential||false,weightedScore:weightedScore,
+      wolfAbstaining:wolfAbstains,wolfEarnings:wolfV.earningsData||null,sorosSignal:sorosV.news_momentum||"NEUTRAL",sorosSentiment:sorosV.sentimentdata||null,squeezePotential:sorosV.squeeze_potential||false,weightedScore:weightedScore,weightLabel:weightLabel,
       consensusOptionType:conOptType,consensusStrike:avgStrike,consensusPremium:prems[0]||null,
       callCount:callC,putCount:putC,avgHorizon:avgH,tradeTypeDecision:ttd,tradeTypeReason:ttr,
       passesCommittee:weightedScore>=0.60&&consensus!=="HOLD",
@@ -758,7 +777,7 @@ export default function QuantDashboard() {
     var wolfResult = await callClaude(WOLF_PROMPT(symbol),[{role:"user",content:"Check "+symbol+" earnings within 7 days. Abstain if none. JSON only."}]);
     var sorosResult = await callClaude(SOROS_PROMPT(symbol,priceStr),[{role:"user",content:"Search sentiment, short interest, analyst changes for "+symbol+". JSON only."}]);
     var results=[wolfResult,cohenResult,dalioResult,sorosResult];
-    return buildCommitteeResult(symbol,results,chainData);
+    return buildCommitteeResult(symbol,results,chainData,regime);
   }
 
   async function runRegimeFilter(){
@@ -1021,6 +1040,32 @@ export default function QuantDashboard() {
               C.weightedScore>=0.90?"90%+ score - highest conviction, full sizing allowed":
               C.weightedScore>=0.80?"80%+ score - strong signal, medium sizing":
               "70%+ score - minimum threshold passed, be selective"
+            )
+          ),
+          C.weightLabel&&React.createElement("div",{style:{background:"#0a0820",borderRadius:4,padding:"6px 10px",marginBottom:8,border:"1px solid #aa88ff15"}},
+            React.createElement("span",{style:{color:"#556677",fontSize:9,letterSpacing:1}},"WEIGHT MODE: "),
+            React.createElement("span",{style:{color:"#aa88ff",fontSize:9}},C.weightLabel)
+          ),
+          C.delta&&React.createElement("div",{style:{background:"#07090f",borderRadius:4,padding:"8px 10px",marginBottom:8,border:"1px solid #00ccff20"}},
+            React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}},
+              React.createElement("span",{style:{color:"#00ccff",fontSize:9,letterSpacing:1}},"PROBABILITY OF PROFIT"),
+              React.createElement("span",{style:{
+                color:parseFloat(C.delta)>=0.50?"#00ff88":parseFloat(C.delta)>=0.35?"#ffcc00":"#ff8844",
+                fontSize:14,fontWeight:"bold"
+              }},(parseFloat(C.delta)*100).toFixed(0)+"%")
+            ),
+            React.createElement("div",{style:{height:4,background:"#1a1a2a",borderRadius:2,marginBottom:4}},
+              React.createElement("div",{style:{
+                width:(parseFloat(C.delta)*100).toFixed(0)+"%",
+                height:"100%",
+                background:parseFloat(C.delta)>=0.50?"#00ff88":parseFloat(C.delta)>=0.35?"#ffcc00":"#ff8844",
+                borderRadius:2
+              }})
+            ),
+            React.createElement("div",{style:{color:"#445566",fontSize:9}},
+              parseFloat(C.delta)>=0.50?"ATM or ITM - higher probability, lower % gain":
+              parseFloat(C.delta)>=0.35?"Slightly OTM - balanced risk/reward":
+              "OTM - lower probability, higher potential % gain if it moves"
             )
           ),
           C.thetaWarning&&React.createElement("div",{style:{background:"#1a0800",borderRadius:4,padding:"7px 10px",marginBottom:8,border:"1px solid #ff884430"}},
