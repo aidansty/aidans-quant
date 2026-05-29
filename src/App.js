@@ -94,9 +94,15 @@ const COHEN_PROMPT = function(sym, price, chainData) {
 const DALIO_PROMPT = function(sym, price) {
   return "You are Agent Dalio - an institutional options flow specialist. You track where big money is placing options bets right now.\n"
     + "Current price data for "+sym+": "+price+"\n\n"
-    + "Do ONE web search for: "+sym+" unusual options activity institutional flow sector 2026\n"
-    + "Key question: Are institutions placing big bets on "+sym+" right now?\n"
-    + "CONVICTION SCALE: Use 0.75 as your baseline when flow exists. Use 0.85 when unusual activity is clear and strong. Only drop below 0.60 if flow is specifically negative or absent.\n"
+    + "Do ONE web search using this exact query: "+sym+" options flow calls puts volume today\n"
+    + "From the search results look for ANY of these signals:\n"
+    + "1. Call or put volume significantly above average (2x or more)\n"
+    + "2. Large block options trades or sweeps\n"
+    + "3. Sector ETF flows - is money moving into or out of this sector today\n"
+    + "4. Whether "+sym+" is outperforming or underperforming SPY recently\n"
+    + "5. Any news about institutional buying or selling\n"
+    + "IMPORTANT: If search results show any bullish price action, volume surge, or positive news - that counts as flow evidence. Do NOT return HOLD just because you cannot find a specific options flow number. Use price momentum and volume as flow proxies when direct flow data is unavailable.\n"
+    + "CONVICTION SCALE: Strong volume surge or sector inflow = 0.80. Moderate bullish signals = 0.72. Mixed signals = 0.60. Only vote HOLD below 0.50 if signals are clearly negative.\n"
     + "Respond in pure JSON only:\n"
     + "{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":820,\"stop\":710,"
     + "\"reasoning\":\"Unusual call volume 3x average, institutions accumulating\",\"horizon_days\":3,"
@@ -108,16 +114,21 @@ const DALIO_PROMPT = function(sym, price) {
 const SOROS_PROMPT = function(sym, price) {
   return "You are Agent Soros - a sentiment and crowd positioning specialist. You read market psychology and short term directional bias for options plays.\n"
     + "Current price data for "+sym+": "+price+"\n\n"
-    + "Do ONE web search for: "+sym+" options sentiment short interest analyst rating news 2026\n"
-    + "From that single search extract: put/call ratio, short interest %, any analyst upgrades/downgrades last 5 days, news momentum positive or negative.\n"
-    + "Key question: Does sentiment create a short term directional edge?\n"
-    + "CONVICTION SCALE: Use 0.75 as your baseline when sentiment leans one direction. Use 0.85 when multiple sentiment signals align. Only vote HOLD if put/call, short interest, AND news all point different directions simultaneously.\n"
+    + "Do ONE web search for: "+sym+" stock news analyst sentiment today\n"
+    + "From that search extract any available signals:\n"
+    + "1. Put/call ratio or options sentiment direction\n"
+    + "2. Short interest percentage and recent change\n"
+    + "3. Any analyst upgrades or downgrades in last 5 days\n"
+    + "4. Recent news tone - positive, negative, or neutral\n"
+    + "5. Social sentiment or momentum\n"
+    + "IMPORTANT: Use ALL available signals. If direct put/call data is unavailable use price action, news tone, and analyst activity as sentiment proxies. Do NOT default to HOLD just because one specific number is missing. Vote the direction most signals point to.\n"
+    + "CONVICTION SCALE: Multiple signals clearly aligned = 0.80. Majority lean one direction = 0.72. Slight lean with mixed signals = 0.62. Only vote HOLD if signals are genuinely split with no clear lean.\n"
     + "Respond in pure JSON only:\n"
     + "{\"direction\":\"BUY\",\"conviction\":0.75,\"entry\":750,\"target\":820,\"stop\":710,"
     + "\"reasoning\":\"Put/call 0.65 bullish, short interest 18% rising squeeze risk, analyst upgrade yesterday\","
     + "\"horizon_days\":3,"
     + "\"put_call_ratio\":0.65,\"short_interest_pct\":18,\"squeeze_potential\":true,"
-    + "\"analyst_change\":\"UPGRADE - price target raised $180 to $210\","
+    + "\"analyst_change\":\"UPGRADE - price target raised\","
     + "\"news_momentum\":\"POSITIVE\","
     + "\"option_type\":\"CALL\",\"option_strike\":755,\"option_expiry\":\"3-5 days\",\"option_premium_est\":\"$2.00-$3.50\"}";
 };
@@ -257,6 +268,8 @@ const SCANNER_CANDIDATES_PROMPT = function(liveStr, regimeData, accountCash) {
     + "- Stock price under $"+maxStockPrice+" so options stay affordable\n"
     + "- ATM option ask ideally under $"+maxPremium+" per share\n"
     + "- Realistic path to move 3-5%+ in next 1-7 days\n"
+    + "- Setup MUST play out within 7 days maximum - no slow moving long term plays\n"
+    + "- Options expiry window must be 3-7 days - reject any stock needing more than 7 days\n"
     + "- Max 2 tech stocks, max 2 from same sector\n"
     + "- Avoid AAPL, MSFT, TSLA, NVDA, AMZN, GOOGL unless account above $500\n\n"
     + strategySection
@@ -699,10 +712,20 @@ export default function QuantDashboard() {
     var prems=optV.map(function(v){ return v.option_premium_est||""; }).filter(Boolean);
     var horizons=Object.values(votes).filter(function(v){ return v.horizon_days&&typeof v.horizon_days==="number"; }).map(function(v){ return v.horizon_days; });
     var avgH=horizons.length?Math.round(horizons.reduce(function(a,b){ return a+b; },0)/horizons.length):3;
-    var ttd=avgH<=3?"OPTIONS - SHORT":avgH<=5?"OPTIONS - MEDIUM":"OPTIONS - LONGER";
-    var ttr=avgH<=3?"Agents see "+avgH+"-day window. Buy ATM or slightly OTM contract expiring in 3-4 days."
-      :avgH<=5?"Agents see "+avgH+"-day window. Buy ATM contract expiring in 5-7 days."
-      :"Agents see "+avgH+"-day window. Buy slightly ITM contract with 7+ days to give time to work.";
+    // Hard ceiling: if average horizon exceeds 7 days this is not a short term play - reject entirely
+    var horizonViolation=avgH>7;
+    // Cap at 7 days for display but flag violation
+    var displayH=Math.min(avgH,7);
+    var ttd=displayH<=3?"OPTIONS - SHORT (3-4 days)":displayH<=5?"OPTIONS - MEDIUM (5-7 days)":"OPTIONS - LONGER (7 days max)";
+    var ttr=displayH<=3?"Agents see "+displayH+"-day window. Buy ATM or slightly OTM contract expiring in 3-4 days. Exit by day 3 regardless."
+      :displayH<=5?"Agents see "+displayH+"-day window. Buy ATM contract expiring in 5-7 days. Exit by day "+displayH+" regardless."
+      :"Agents see "+displayH+"-day window. Buy ATM contract expiring in 7 days. This is your maximum - exit by day 7 no matter what.";
+    // Calculate exact expiry date and max hold date
+    var today=new Date();
+    var expiryDate=new Date(today); expiryDate.setDate(today.getDate()+displayH);
+    var maxHoldDate=new Date(expiryDate); maxHoldDate.setDate(expiryDate.getDate()-2);
+    var expiryDateStr=expiryDate.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"});
+    var maxHoldDateStr=maxHoldDate.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"});
     var cohenV=votes["Cohen (Price Action)"]||{};
     // Use real chain data as trusted source - fallback to Cohen's parsed values if chain unavailable
     var realChain = chainData && !chainData.error ? chainData : null;
@@ -725,18 +748,37 @@ export default function QuantDashboard() {
     if(daysToExpiry<=2) thetaWarning="HIGH THETA RISK - "+daysToExpiry+" days left, decay accelerating fast";
     else if(daysToExpiry<=3) thetaWarning="MODERATE THETA - sell if up 40%+ before expiry";
     var premNum=prems[0]?parseFloat(prems[0].replace(/[^0-9.]/g,"")):null;
-    var takeProfit=premNum?"$"+(premNum*1.5).toFixed(2)+" (+50% gain) - take at least half off here":null;
-    var stopLoss=premNum?"$"+(premNum*0.5).toFixed(2)+" (-50% loss) - exit immediately, do not hold":null;
+
+    // Calculate trade-specific take profit based on what agents actually see
+    var takeProfitPct=50;
+    var takeProfitReason="";
+    if(entryAvg&&targetAvg&&premNum){
+      var expectedStockMovePct=Math.abs((targetAvg-entryAvg)/entryAvg)*100;
+      var deltaNum=delta?parseFloat(delta):0.45;
+      var stockPrice=entryAvg||50;
+      if(deltaNum>0&&premNum>0){
+        var optionGainDollars=deltaNum*(expectedStockMovePct/100)*stockPrice;
+        var optionGainPct=(optionGainDollars/premNum)*100;
+        takeProfitPct=Math.max(25,Math.min(200,Math.round(optionGainPct)));
+        takeProfitReason="Based on "+expectedStockMovePct.toFixed(1)+"% expected stock move x delta "+deltaNum.toFixed(2);
+      } else {
+        takeProfitPct=Math.max(25,Math.min(150,Math.round(expectedStockMovePct*3)));
+        takeProfitReason="Based on "+expectedStockMovePct.toFixed(1)+"% expected stock move";
+      }
+    }
+    var takeProfit=premNum?"$"+(premNum*(1+(takeProfitPct/100))).toFixed(2)+" (+"+takeProfitPct+"% gain) - "+takeProfitReason:null;
+    var stopLoss=premNum?"$"+(premNum*0.50).toFixed(2)+" (-50% loss) - exit immediately, do not hold":null;
     return {symbol:symbol,votes:votes,consensus:consensus,buys:buys,sells:sells,avgConv:avgConv.toFixed(2),stars:stars,
       entry:validEntry,target:validTarget,stop:validStop,
       wolfAbstaining:wolfAbstains,wolfEarnings:wolfV.earningsData||null,sorosSignal:sorosV.news_momentum||"NEUTRAL",sorosSentiment:sorosV.sentimentdata||null,squeezePotential:sorosV.squeeze_potential||false,weightedScore:weightedScore,weightLabel:weightLabel,
       consensusOptionType:conOptType,consensusStrike:avgStrike,consensusPremium:prems[0]||null,
       callCount:callC,putCount:putC,avgHorizon:avgH,tradeTypeDecision:ttd,tradeTypeReason:ttr,
-      passesCommittee:weightedScore>=0.60&&consensus!=="HOLD",
+      passesCommittee:weightedScore>=0.60&&consensus!=="HOLD"&&!horizonViolation,
       delta:delta,theta:theta,openInterest:openInterest,bidAskSpread:bidAskSpread,liquidityOk:liquidityOk,
       daysToExpiry:daysToExpiry,maxRisk:maxRisk,thetaWarning:thetaWarning,takeProfit:takeProfit,stopLoss:stopLoss,
       realIV:realIV,liquidityGrade:liquidityGrade,dataSource:dataSource,stockPCRatio:realChain?realChain.stockPCRatio:null,
-      avgCallIV:realChain?realChain.avgCallIV:null,realChainAvailable:!!realChain};
+      avgCallIV:realChain?realChain.avgCallIV:null,realChainAvailable:!!realChain,
+      horizonViolation:horizonViolation,expiryDateStr:expiryDateStr,maxHoldDateStr:maxHoldDateStr,displayH:displayH};
   }
 
   async function fetchOptionsChain(symbol, price){
@@ -977,90 +1019,94 @@ export default function QuantDashboard() {
       ),
       React.createElement("div",{style:{padding:"12px 14px",background:"#07090f"}},
         C.passesCommittee&&C.consensusOptionType&&React.createElement("div",{style:{background:C.consensusOptionType==="CALL"?"#001a0d":"#1a0000",borderRadius:6,padding:"12px 14px",marginBottom:12,border:"2px solid "+optColor+"60"}},
-          React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
-            React.createElement("span",{style:{color:"#888",fontSize:9,letterSpacing:2}},"COMMITTEE OPTIONS RECOMMENDATION"),
-            React.createElement("span",{style:{background:C.realChainAvailable?"#001a2a":"#1a0800",border:"1px solid "+(C.realChainAvailable?"#00ccff40":"#ff884440"),borderRadius:3,padding:"2px 6px",fontSize:8,color:C.realChainAvailable?"#00ccff":"#ff8844",letterSpacing:1}},C.realChainAvailable?"REAL DATA":"AI ESTIMATED"),
-            React.createElement("span",{style:{color:optColor,fontSize:18,fontWeight:"bold"}},(C.consensusOptionType==="CALL"?"BUY CALL":"BUY PUT"))
-          ),
-          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:8}},
-            C.consensusStrike&&React.createElement("div",{style:{background:"#ffffff10",borderRadius:4,padding:"8px",textAlign:"center"}},
-              React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"STRIKE PRICE"),
-              React.createElement("div",{style:{color:"#00ccff",fontSize:14,fontWeight:"bold"}},"$"+C.consensusStrike)
+          React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}},
+            React.createElement("div",null,
+              React.createElement("div",{style:{color:"#888",fontSize:9,letterSpacing:2,marginBottom:4}},"TRADE TICKET"),
+              React.createElement("div",{style:{color:optColor,fontSize:22,fontWeight:"bold",letterSpacing:1}},C.consensusOptionType==="CALL"?"BUY CALL":"BUY PUT")
             ),
-            C.avgHorizon&&React.createElement("div",{style:{background:"#ffffff10",borderRadius:4,padding:"8px",textAlign:"center"}},
-              React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"EXPIRY"),
-              React.createElement("div",{style:{color:"#ffcc00",fontSize:14,fontWeight:"bold"}},C.avgHorizon+" days out")
-            ),
-            C.consensusPremium&&React.createElement("div",{style:{background:"#ff000015",borderRadius:4,padding:"8px",textAlign:"center",border:"1px solid #ff444420"}},
-              React.createElement("div",{style:{color:"#ff4444aa",fontSize:9,marginBottom:2}},"EST. COST"),
-              React.createElement("div",{style:{color:"#ff8866",fontSize:13,fontWeight:"bold"}},C.consensusPremium)
+            React.createElement("div",{style:{textAlign:"right"}},
+              React.createElement("div",{style:{color:"#556677",fontSize:9,marginBottom:2}},"DATA SOURCE"),
+              React.createElement("div",{style:{background:C.realChainAvailable?"#001a2a":"#1a0800",border:"1px solid "+(C.realChainAvailable?"#00ccff40":"#ff884440"),borderRadius:3,padding:"2px 8px",fontSize:9,color:C.realChainAvailable?"#00ccff":"#ff8844",letterSpacing:1}},C.realChainAvailable?"REAL DATA":"AI ESTIMATED")
             )
           ),
-          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:10}},
-            C.delta&&React.createElement("div",{style:{background:"#ffffff08",borderRadius:4,padding:"6px 8px",textAlign:"center"}},
-              React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"DELTA"),
-              React.createElement("div",{style:{color:"#88ccff",fontSize:12,fontWeight:"bold"}},C.delta),
-              React.createElement("div",{style:{color:"#556677",fontSize:8}},"moves per $1")
+          React.createElement("div",{style:{background:"#ffffff06",borderRadius:6,padding:"10px 12px",marginBottom:8,border:"1px solid "+optColor+"30"}},
+            React.createElement("div",{style:{color:"#888",fontSize:9,letterSpacing:2,marginBottom:8}},"CONTRACT DETAILS - ENTER THESE ON ROBINHOOD"),
+            React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}},
+              C.consensusStrike&&React.createElement("div",{style:{background:"#ffffff10",borderRadius:4,padding:"8px",textAlign:"center"}},
+                React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"STRIKE PRICE"),
+                React.createElement("div",{style:{color:"#00ccff",fontSize:16,fontWeight:"bold"}},"$"+C.consensusStrike)
+              ),
+              React.createElement("div",{style:{background:"#ffffff10",borderRadius:4,padding:"8px",textAlign:"center"}},
+                React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"SELECT EXPIRY DATE"),
+                React.createElement("div",{style:{color:"#ffcc00",fontSize:12,fontWeight:"bold"}},C.expiryDateStr||C.displayH+" days out"),
+                React.createElement("div",{style:{color:"#445566",fontSize:8}},C.displayH+" days from today - max 7 days")
+              )
             ),
-            C.theta&&React.createElement("div",{style:{background:"#ffffff08",borderRadius:4,padding:"6px 8px",textAlign:"center"}},
-              React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"THETA/DAY"),
-              React.createElement("div",{style:{color:"#ff8844",fontSize:12,fontWeight:"bold"}},C.theta),
-              React.createElement("div",{style:{color:"#556677",fontSize:8}},"decay per day")
+            React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:6}},
+              C.consensusPremium&&React.createElement("div",{style:{background:"#ff000015",borderRadius:4,padding:"6px 8px",textAlign:"center",border:"1px solid #ff444420"}},
+                React.createElement("div",{style:{color:"#ff4444aa",fontSize:9,marginBottom:2}},"EST. ASK"),
+                React.createElement("div",{style:{color:"#ff8866",fontSize:13,fontWeight:"bold"}},C.consensusPremium),
+                React.createElement("div",{style:{color:"#556677",fontSize:8}},"x100 = total cost")
+              ),
+              C.bidAskSpread&&React.createElement("div",{style:{background:"#ffffff08",borderRadius:4,padding:"6px 8px",textAlign:"center"}},
+                React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"SPREAD"),
+                React.createElement("div",{style:{color:parseFloat(C.bidAskSpread.replace("$",""))<=0.30?"#00ff88":"#ffcc00",fontSize:13,fontWeight:"bold"}},C.bidAskSpread),
+                React.createElement("div",{style:{color:"#556677",fontSize:8}},"bid/ask difference")
+              ),
+              React.createElement("div",{style:{background:C.liquidityOk?"#001a0d":"#1a0800",borderRadius:4,padding:"6px 8px",textAlign:"center",border:"1px solid "+(C.liquidityOk?"#00ff8830":"#ff444430")}},
+                React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"LIQUIDITY"),
+                React.createElement("div",{style:{color:C.liquidityOk?"#00ff88":"#ff4444",fontSize:12,fontWeight:"bold"}},C.liquidityGrade||(C.liquidityOk?"OK":"POOR")),
+                C.openInterest&&React.createElement("div",{style:{color:"#556677",fontSize:8}},"OI: "+C.openInterest)
+              )
             ),
-            C.openInterest&&React.createElement("div",{style:{background:C.openInterest>500?"#001a0d":"#1a0800",borderRadius:4,padding:"6px 8px",textAlign:"center",border:"1px solid "+(C.openInterest>500?"#00ff8830":"#ff884430")}},
-              React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"OPEN INT."),
-              React.createElement("div",{style:{color:C.openInterest>500?"#00ff88":"#ff8844",fontSize:12,fontWeight:"bold"}},C.openInterest),
-              React.createElement("div",{style:{color:"#556677",fontSize:8}},C.openInterest>500?"liquid":"low liquidity")
-            ),
-            React.createElement("div",{style:{background:C.liquidityOk?"#001a0d":"#1a0800",borderRadius:4,padding:"6px 8px",textAlign:"center",border:"1px solid "+(C.liquidityOk?"#00ff8830":"#ff444430")}},
-              React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"LIQUIDITY"),
-              React.createElement("div",{style:{color:C.liquidityOk?"#00ff88":"#ff4444",fontSize:12,fontWeight:"bold"}},C.liquidityGrade||(C.liquidityOk?"OK":"POOR")),
-              C.bidAskSpread&&React.createElement("div",{style:{color:"#556677",fontSize:8}},"spread: "+C.bidAskSpread)
+            React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}},
+              C.delta&&React.createElement("div",{style:{background:"#ffffff08",borderRadius:4,padding:"6px 8px",textAlign:"center"}},
+                React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"DELTA"),
+                React.createElement("div",{style:{color:"#88ccff",fontSize:13,fontWeight:"bold"}},C.delta),
+                React.createElement("div",{style:{color:"#556677",fontSize:8}},"prob in the money")
+              ),
+              C.theta&&React.createElement("div",{style:{background:"#ffffff08",borderRadius:4,padding:"6px 8px",textAlign:"center"}},
+                React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"THETA/DAY"),
+                React.createElement("div",{style:{color:"#ff8844",fontSize:13,fontWeight:"bold"}},C.theta),
+                React.createElement("div",{style:{color:"#556677",fontSize:8}},"lost per day to decay")
+              ),
+              C.realIV&&React.createElement("div",{style:{background:"#ffffff08",borderRadius:4,padding:"6px 8px",textAlign:"center"}},
+                React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"IMPLIED VOL"),
+                React.createElement("div",{style:{color:"#ffcc00",fontSize:13,fontWeight:"bold"}},C.realIV),
+                React.createElement("div",{style:{color:"#556677",fontSize:8}},"real chain data")
+              )
             )
           ),
-          C.realIV&&React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}},
-            React.createElement("div",{style:{background:"#ffffff08",borderRadius:4,padding:"6px 8px",textAlign:"center"}},
-              React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"IMPLIED VOL"),
-              React.createElement("div",{style:{color:"#ffcc00",fontSize:12,fontWeight:"bold"}},C.realIV),
-              React.createElement("div",{style:{color:"#556677",fontSize:8}},"real chain data")
-            ),
-            C.stockPCRatio&&React.createElement("div",{style:{background:"#ffffff08",borderRadius:4,padding:"6px 8px",textAlign:"center"}},
-              React.createElement("div",{style:{color:"#666",fontSize:9,marginBottom:2}},"STOCK P/C RATIO"),
-              React.createElement("div",{style:{color:parseFloat(C.stockPCRatio)>1.0?"#ff4444":parseFloat(C.stockPCRatio)<0.7?"#00ff88":"#ffcc00",fontSize:12,fontWeight:"bold"}},C.stockPCRatio),
-              React.createElement("div",{style:{color:"#556677",fontSize:8}},parseFloat(C.stockPCRatio)>1.0?"bearish positioning":"bullish positioning")
+          React.createElement("div",{style:{background:"#0a0010",borderRadius:6,padding:"10px 12px",marginBottom:8,border:"1px solid #aa88ff40"}},
+            React.createElement("div",{style:{color:"#aa88ff",fontSize:9,letterSpacing:2,marginBottom:8}},"YOUR 3 EXIT RULES - FOLLOW THESE EXACTLY"),
+            React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}},
+              C.takeProfit&&React.createElement("div",{style:{background:"#001a0d",borderRadius:4,padding:"8px",textAlign:"center",border:"1px solid #00ff8840"}},
+                React.createElement("div",{style:{color:"#00ff88",fontSize:9,letterSpacing:1,marginBottom:4}},"EXIT 1"),
+                React.createElement("div",{style:{color:"#00ff88",fontSize:9,marginBottom:4}},"TAKE PROFIT"),
+                React.createElement("div",{style:{color:"#00ff88",fontSize:14,fontWeight:"bold"}},C.takeProfit),
+                React.createElement("div",{style:{color:"#334455",fontSize:8,marginTop:2}},"sell when option hits this")
+              ),
+              C.stopLoss&&React.createElement("div",{style:{background:"#1a0000",borderRadius:4,padding:"8px",textAlign:"center",border:"1px solid #ff444440"}},
+                React.createElement("div",{style:{color:"#ff4444",fontSize:9,letterSpacing:1,marginBottom:4}},"EXIT 2"),
+                React.createElement("div",{style:{color:"#ff4444",fontSize:9,marginBottom:4}},"STOP LOSS"),
+                React.createElement("div",{style:{color:"#ff6666",fontSize:14,fontWeight:"bold"}},C.stopLoss),
+                React.createElement("div",{style:{color:"#334455",fontSize:8,marginTop:2}},"sell immediately if drops here")
+              ),
+              React.createElement("div",{style:{background:"#1a1000",borderRadius:4,padding:"8px",textAlign:"center",border:"1px solid #ffaa0040"}},
+                React.createElement("div",{style:{color:"#ffaa00",fontSize:9,letterSpacing:1,marginBottom:4}},"EXIT 3"),
+                React.createElement("div",{style:{color:"#ffaa00",fontSize:9,marginBottom:4}},"MAX HOLD DATE"),
+                React.createElement("div",{style:{color:"#ffcc00",fontSize:12,fontWeight:"bold"}},C.maxHoldDateStr||"Day "+(C.displayH-1)),
+                React.createElement("div",{style:{color:"#334455",fontSize:8,marginTop:2}},"close no matter what by here")
+              )
             )
-          ),
-          React.createElement("div",{style:{background:"#0a0820",borderRadius:4,padding:"8px 10px",marginBottom:8,border:"1px solid #aa88ff20"}},
-            React.createElement("div",{style:{color:"#aa88ff",fontSize:9,letterSpacing:2,marginBottom:4}},"POSITION SIZING - "+C.buys+"/4 AGENTS"),
-            React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
-              React.createElement("span",{style:{color:"#cccccc",fontSize:11}},"Recommended max risk:"),
-              React.createElement("span",{style:{color:"#ffcc00",fontSize:14,fontWeight:"bold"}},"$"+C.maxRisk+" (1 contract)")
-            ),
-            React.createElement("div",{style:{color:"#556677",fontSize:9,marginTop:2}},
-              C.weightedScore>=0.90?"90%+ score - highest conviction, full sizing allowed":
-              C.weightedScore>=0.80?"80%+ score - strong signal, medium sizing":
-              "70%+ score - minimum threshold passed, be selective"
-            )
-          ),
-          C.weightLabel&&React.createElement("div",{style:{background:"#0a0820",borderRadius:4,padding:"6px 10px",marginBottom:8,border:"1px solid #aa88ff15"}},
-            React.createElement("span",{style:{color:"#556677",fontSize:9,letterSpacing:1}},"WEIGHT MODE: "),
-            React.createElement("span",{style:{color:"#aa88ff",fontSize:9}},C.weightLabel)
           ),
           C.delta&&React.createElement("div",{style:{background:"#07090f",borderRadius:4,padding:"8px 10px",marginBottom:8,border:"1px solid #00ccff20"}},
             React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}},
               React.createElement("span",{style:{color:"#00ccff",fontSize:9,letterSpacing:1}},"PROBABILITY OF PROFIT"),
-              React.createElement("span",{style:{
-                color:parseFloat(C.delta)>=0.50?"#00ff88":parseFloat(C.delta)>=0.35?"#ffcc00":"#ff8844",
-                fontSize:14,fontWeight:"bold"
-              }},(parseFloat(C.delta)*100).toFixed(0)+"%")
+              React.createElement("span",{style:{color:parseFloat(C.delta)>=0.50?"#00ff88":parseFloat(C.delta)>=0.35?"#ffcc00":"#ff8844",fontSize:14,fontWeight:"bold"}},(parseFloat(C.delta)*100).toFixed(0)+"%")
             ),
             React.createElement("div",{style:{height:4,background:"#1a1a2a",borderRadius:2,marginBottom:4}},
-              React.createElement("div",{style:{
-                width:(parseFloat(C.delta)*100).toFixed(0)+"%",
-                height:"100%",
-                background:parseFloat(C.delta)>=0.50?"#00ff88":parseFloat(C.delta)>=0.35?"#ffcc00":"#ff8844",
-                borderRadius:2
-              }})
+              React.createElement("div",{style:{width:(parseFloat(C.delta)*100).toFixed(0)+"%",height:"100%",background:parseFloat(C.delta)>=0.50?"#00ff88":parseFloat(C.delta)>=0.35?"#ffcc00":"#ff8844",borderRadius:2}})
             ),
             React.createElement("div",{style:{color:"#445566",fontSize:9}},
               parseFloat(C.delta)>=0.50?"ATM or ITM - higher probability, lower % gain":
@@ -1068,18 +1114,13 @@ export default function QuantDashboard() {
               "OTM - lower probability, higher potential % gain if it moves"
             )
           ),
-          C.thetaWarning&&React.createElement("div",{style:{background:"#1a0800",borderRadius:4,padding:"7px 10px",marginBottom:8,border:"1px solid #ff884430"}},
-            React.createElement("span",{style:{color:"#ff8844",fontSize:10,fontWeight:"bold"}},"THETA: "+C.thetaWarning)
-          ),
-          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}},
-            C.takeProfit&&React.createElement("div",{style:{background:"#001a0d",borderRadius:4,padding:"7px 10px",border:"1px solid #00ff8830"}},
-              React.createElement("div",{style:{color:"#00ff88",fontSize:9,letterSpacing:1,marginBottom:2}},"TAKE PROFIT"),
-              React.createElement("div",{style:{color:"#00ff88",fontSize:11,fontWeight:"bold"}},C.takeProfit)
+          React.createElement("div",{style:{background:"#0a0820",borderRadius:4,padding:"8px 10px",marginBottom:8,border:"1px solid #aa88ff20"}},
+            React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}},
+              React.createElement("span",{style:{color:"#aa88ff",fontSize:9,letterSpacing:1}},"POSITION SIZING"),
+              React.createElement("span",{style:{color:"#ffcc00",fontSize:14,fontWeight:"bold"}},"$"+C.maxRisk+" MAX (1 contract)")
             ),
-            C.stopLoss&&React.createElement("div",{style:{background:"#1a0000",borderRadius:4,padding:"7px 10px",border:"1px solid #ff444430"}},
-              React.createElement("div",{style:{color:"#ff4444",fontSize:9,letterSpacing:1,marginBottom:2}},"STOP LOSS"),
-              React.createElement("div",{style:{color:"#ff6666",fontSize:11,fontWeight:"bold"}},C.stopLoss)
-            )
+            C.weightLabel&&React.createElement("div",{style:{color:"#445566",fontSize:9}},C.weightLabel),
+            C.thetaWarning&&React.createElement("div",{style:{color:"#ff8844",fontSize:9,marginTop:4,fontWeight:"bold"}},"THETA WARNING: "+C.thetaWarning)
           ),
           React.createElement("div",{style:{color:"#778899",fontSize:10,lineHeight:1.6}},C.tradeTypeReason)
         ),
@@ -1087,19 +1128,9 @@ export default function QuantDashboard() {
           React.createElement("div",{style:{color:"#ff8844",fontSize:13,fontWeight:"bold",marginBottom:4}},"COMMITTEE REJECTED"),
           React.createElement("div",{style:{color:"#aaaaaa",fontSize:11}},"Weighted score: "+(C.weightedScore*100).toFixed(0)+"% - below 60% threshold. Need Cohen + Dalio both confident. Do not trade.")
         ),
-        React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}},
-          React.createElement("div",{style:{background:"#003322",border:"2px solid #00ff8850",borderRadius:6,padding:"8px",textAlign:"center"}},
-            React.createElement("div",{style:{color:"#00ff8899",fontSize:9,letterSpacing:2,marginBottom:2}},"STOCK ENTRY"),
-            React.createElement("div",{style:{color:"#00ff88",fontSize:11,fontWeight:"bold"}},C.entry||"-")
-          ),
-          React.createElement("div",{style:{background:"#001a33",border:"2px solid #00ccff50",borderRadius:6,padding:"8px",textAlign:"center"}},
-            React.createElement("div",{style:{color:"#00ccff99",fontSize:9,letterSpacing:2,marginBottom:2}},"STOCK TARGET"),
-            React.createElement("div",{style:{color:"#00ccff",fontSize:11,fontWeight:"bold"}},C.target||"-")
-          ),
-          React.createElement("div",{style:{background:"#330000",border:"2px solid #ff444450",borderRadius:6,padding:"8px",textAlign:"center"}},
-            React.createElement("div",{style:{color:"#ff444499",fontSize:9,letterSpacing:2,marginBottom:2}},"STOCK STOP"),
-            React.createElement("div",{style:{color:"#ff6666",fontSize:11,fontWeight:"bold"}},C.stop||"-")
-          )
+        C.horizonViolation&&React.createElement("div",{style:{background:"#1a0800",borderRadius:6,padding:"10px 14px",marginBottom:12,border:"2px solid #ff884060",textAlign:"center"}},
+          React.createElement("div",{style:{color:"#ff8844",fontSize:13,fontWeight:"bold",marginBottom:4}},"HORIZON VIOLATION - TRADE REJECTED"),
+          React.createElement("div",{style:{color:"#aaaaaa",fontSize:11}},"Agents see this as a "+C.displayH+"+ day play. This exceeds your 7-day maximum. Not suitable for your short term strategy.")
         ),
         C.wolfEarnings&&React.createElement("div",{style:{background:"#0a1428",borderRadius:4,padding:"6px 10px",marginBottom:6,border:"1px solid #4488ff30"}},
           React.createElement("span",{style:{color:"#4488ff",fontSize:9,letterSpacing:1}},"WOLF EARNINGS: "),
