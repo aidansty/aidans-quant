@@ -403,6 +403,8 @@ export default function QuantDashboard() {
   const [journalForm,      setJournalForm]      = useState({status:"NO_TRADE",notes:"",regime:""});
   const [journalOpen,      setJournalOpen]      = useState(false);
   const [spyIVRank,        setSpyIVRank]        = useState("");
+  const [positionChecks,   setPositionChecks]   = useState({});
+  const [checkingPosition, setCheckingPosition] = useState(null);
   const [spyPCRatio,       setSpyPCRatio]       = useState("");
   const [unusualTicker,    setUnusualTicker]    = useState("");
   const [optionsInputSaved, setOptionsInputSaved] = useState(false);
@@ -581,6 +583,53 @@ export default function QuantDashboard() {
     var newJournal=sessionJournal.filter(function(j){ return j.date!==date; });
     setSessionJournal(newJournal);
     saveToDb("sj3", JSON.stringify(newJournal));
+  }
+
+  async function checkPosition(idx){
+    var pos=optionsPositions[idx];
+    if(!pos) return;
+    setCheckingPosition(idx);
+    var posKey=pos.symbol+"_"+pos.strike+"_"+pos.expiry;
+    try{
+      var live=livePrices[pos.symbol]||{};
+      var priceStr="Price:$"+(live.price?live.price.toFixed(2):"?")+", Change:"+(live.change?live.change.toFixed(2):"0")+"%, High:$"+(live.high?live.high.toFixed(2):"?")+", Low:$"+(live.low?live.low.toFixed(2):"?")+" Volume:"+(live.volume||0).toLocaleString();
+      var days=getDaysUntilExpiry(pos.expiry);
+      var costBasis=pos.premium;
+      var system="You are a short term options trade monitor. Analyze whether this open position should be held or closed RIGHT NOW.\n\n"
+        + "POSITION: "+pos.symbol+" "+pos.optionType+" $"+pos.strike+" strike, expires "+pos.expiry+" ("+days+" days left)\n"
+        + "ENTRY PREMIUM PAID: $"+costBasis+" per share ($"+(costBasis*100).toFixed(0)+" total)\n"
+        + "TAKE PROFIT TARGET: $"+(costBasis*1.5).toFixed(2)+" per share\n"
+        + "STOP LOSS LEVEL: $"+(costBasis*0.5).toFixed(2)+" per share\n"
+        + "CURRENT STOCK DATA: "+priceStr+"\n\n"
+        + "Search for: "+pos.symbol+" stock news today price action\n\n"
+        + "Based on current price action and any breaking news, give ONE recommendation:\n"
+        + "HOLD - original thesis intact, continue holding\n"
+        + "TAKE PROFIT - option likely at or near target, sell now and lock in gains\n"
+        + "CLOSE - thesis broken, news is negative, or risk too high - exit immediately\n\n"
+        + "Respond in pure JSON only:\n"
+        + "{\"action\":\"HOLD\",\"confidence\":0.8,\"reason\":\"Stock holding above support, thesis intact\","
+        + "\"urgency\":\"LOW\",\"price_vs_thesis\":\"ON TRACK\"}";
+      var txt=await callClaude(system,[{role:"user",content:"Check this position now and give me a recommendation. JSON only."}]);
+      var clean=txt.split("\u0060\u0060\u0060json").join("").split("\u0060\u0060\u0060").join("").trim();
+      var s=clean.indexOf("{"),e=clean.lastIndexOf("}");
+      var parsed=JSON.parse(clean.substring(s,e+1));
+      var newChecks=Object.assign({},positionChecks);
+      newChecks[posKey]={
+        action:parsed.action||"HOLD",
+        reason:parsed.reason||"Analysis complete",
+        urgency:parsed.urgency||"LOW",
+        priceVsThesis:parsed.price_vs_thesis||"UNKNOWN",
+        confidence:parsed.confidence||0.5,
+        timestamp:new Date().toLocaleTimeString()
+      };
+      setPositionChecks(newChecks);
+    }catch(e){
+      var newChecks=Object.assign({},positionChecks);
+      var posKey2=pos.symbol+"_"+pos.strike+"_"+pos.expiry;
+      newChecks[posKey2]={action:"ERROR",reason:"Check failed - "+e.message,urgency:"LOW",timestamp:new Date().toLocaleTimeString()};
+      setPositionChecks(newChecks);
+    }
+    setCheckingPosition(null);
   }
 
   async function getDailyBriefing(){
@@ -1495,13 +1544,35 @@ export default function QuantDashboard() {
                   React.createElement("span",{style:{color:"#ff2222",fontSize:12,fontWeight:"bold"}},(days<=0?"EXPIRED - ":"EXPIRING TODAY - ")+"CLOSE ON ROBINHOOD NOW OR LOSE EVERYTHING")
                 ),
                 o.note&&React.createElement("div",{style:{color:"#667788",fontSize:10,marginBottom:8}},o.note),
-                React.createElement("div",{style:{display:"flex",gap:6}},
-                  React.createElement("input",{placeholder:"Close price (what you sold for e.g. 3.50)",id:"close_"+idx,style:Object.assign({},S.inp,{flex:1,fontSize:11})}),
-                  React.createElement("button",{
-                    onClick:function(ci){ return function(){ var cp=document.getElementById("close_"+ci).value; closeOptionPosition(ci,cp||"0"); }; }(idx),
-                    style:Object.assign({},S.btn("#ff8844","linear-gradient(135deg,#1a0800,#2a1000)"),{width:"auto",padding:"8px 14px",fontSize:10})
-                  },"CLOSE POSITION")
-                )
+                (function(){
+                  var posKey=pos.symbol+"_"+pos.strike+"_"+pos.expiry;
+                  var check=positionChecks[posKey];
+                  var actionColor=check?(check.action==="HOLD"?"#00ff88":check.action==="TAKE PROFIT"?"#ffcc00":"#ff4444"):"#556677";
+                  return React.createElement("div",null,
+                    check&&React.createElement("div",{style:{background:check.action==="HOLD"?"#001a0d":check.action==="TAKE PROFIT"?"#1a1400":"#1a0000",borderRadius:4,padding:"8px 10px",marginBottom:8,border:"1px solid "+actionColor+"40"}},
+                      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}},
+                        React.createElement("span",{style:{color:actionColor,fontSize:12,fontWeight:"bold"}},
+                          check.action==="HOLD"?"HOLD POSITION":check.action==="TAKE PROFIT"?"TAKE PROFIT NOW":"CLOSE POSITION NOW"
+                        ),
+                        React.createElement("span",{style:{color:"#445566",fontSize:9}},check.timestamp)
+                      ),
+                      React.createElement("div",{style:{color:"#aaaaaa",fontSize:10,lineHeight:1.5}},check.reason),
+                      check.urgency==="HIGH"&&React.createElement("div",{style:{color:"#ff4444",fontSize:10,fontWeight:"bold",marginTop:4}},"URGENT - Act on this immediately")
+                    ),
+                    React.createElement("div",{style:{display:"flex",gap:6}},
+                      React.createElement("button",{
+                        onClick:function(i){ return function(){ checkPosition(i); }; }(idx),
+                        disabled:checkingPosition===idx,
+                        style:Object.assign({},S.btn("#00ccff","linear-gradient(135deg,#001a2a,#002a3a)"),{flex:1,padding:"8px",fontSize:10})
+                      },checkingPosition===idx?"CHECKING POSITION...":"CHECK POSITION"),
+                      React.createElement("input",{placeholder:"Close price e.g. 3.50",id:"close_"+idx,style:Object.assign({},S.inp,{flex:1,fontSize:11})}),
+                      React.createElement("button",{
+                        onClick:function(ci){ return function(){ var cp=document.getElementById("close_"+ci).value; closeOptionPosition(ci,cp||"0"); }; }(idx),
+                        style:Object.assign({},S.btn("#ff8844","linear-gradient(135deg,#1a0800,#2a1000)"),{width:"auto",padding:"8px 14px",fontSize:10})
+                      },"CLOSE")
+                    )
+                  );
+                })()
               );
             })
           ),
