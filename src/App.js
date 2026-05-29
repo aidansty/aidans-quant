@@ -4,11 +4,17 @@ import React, { useState, useEffect } from "react";
 const STARTING_CASH = 250;
 
 const WOLF_PROMPT = function(sym) {
-  return "You are Agent Wolf - an earnings catalyst specialist. Your ONLY job is to determine if "+sym+" has an earnings event within 7 days and whether that event creates a tradeable options setup.\n"
-    + "Do ONE web search for: "+sym+" earnings date EPS beat history implied move 2026\n"
-    + "From that single search determine: is earnings within 7 days? If NO - abstain immediately.\n"
-    + "If YES: did it beat last 3-4 quarters? Is implied move less than historical move?\n"
-    + "If NO earnings within 7 days respond with abstain=true direction=HOLD conviction=0.\n"
+  return "You are Agent Wolf - an earnings catalyst specialist. Your ONLY job: does "+sym+" have earnings within 7 days and is it a strong options setup?\n"
+    + "STEP 1: Search specifically for: "+sym+" next earnings date calendar 2026\n"
+    + "STEP 2: If NO earnings within 7 days - abstain immediately. Return abstain=true, direction=HOLD, conviction=0. Do not do any further analysis.\n"
+    + "STEP 3: Only if earnings ARE within 7 days, search for: "+sym+" earnings EPS beat surprise history quarterly results\n"
+    + "STEP 4: From step 3 determine:\n"
+    + "- How many of the last 4 quarters did it beat EPS estimates? Use exact number like 3 or 4, not a letter.\n"
+    + "- Did management raise guidance last quarter? Yes or No only.\n"
+    + "- What is the options implied move percentage for this earnings? Search specifically for this.\n"
+    + "- What is the average historical post-earnings move percentage? Search specifically for this.\n"
+    + "CRITICAL: If you cannot find beat streak as a specific number, set beat_streak to 0 not a letter. If you cannot find implied or historical move, set both to 0 and set options_underpriced to false. Never return question marks or unknown values - use 0 for missing numbers and false for missing booleans.\n"
+    + "If data is too incomplete to make a confident call even with earnings within 7 days, set abstain=true.\n"
     + "Respond in pure JSON only:\n"
     + "{\"direction\":\"BUY\",\"conviction\":0.8,\"entry\":750,\"target\":850,\"stop\":695,"
     + "\"reasoning\":\"Earnings in 3 days, beat 4/4 last quarters, implied move 5% vs historical 9%\","
@@ -565,7 +571,26 @@ export default function QuantDashboard() {
         if(typeof parsed.reasoning!=="string") parsed.reasoning=JSON.stringify(parsed.reasoning).slice(0,200);
         if(names[i]==="Cohen (Technicals)"&&parsed.rsi) parsed.technicals="RSI: "+parsed.rsi+" | MACD: "+(parsed.macd||"n/a")+" | MA: "+(parsed.ma_position||"n/a")+" | Sup: $"+(parsed.key_support||"?")+" | Res: $"+(parsed.key_resistance||"?");
         if(names[i]==="Dalio (Flow)"&&parsed.sector_flow) parsed.flowdata="Sector: "+(parsed.sector_flow||"n/a")+" | Options: "+(parsed.options_signal||"n/a")+" | vs SPY: "+(parsed.relative_strength||"n/a");
-        if(names[i]==="Wolf (Earnings)"&&parsed.earnings_date) parsed.earningsData="Earnings: "+(parsed.earnings_date||"?")+" | Beat streak: "+(parsed.beat_streak||"?")+"Q | Guidance up: "+(parsed.guidance_up?"YES":"NO")+" | Implied: "+(parsed.implied_move_pct||"?")+"%% vs Historical: "+(parsed.historical_move_pct||"?")+"%% | Underpriced: "+(parsed.options_underpriced?"YES":"NO");
+        if(names[i]==="Wolf (Earnings)"){
+          // Clean up missing data - replace question marks and invalid values with clean defaults
+          if(typeof parsed.beat_streak!=="number"||isNaN(parsed.beat_streak)) parsed.beat_streak=0;
+          if(typeof parsed.implied_move_pct!=="number"||isNaN(parsed.implied_move_pct)) parsed.implied_move_pct=0;
+          if(typeof parsed.historical_move_pct!=="number"||isNaN(parsed.historical_move_pct)) parsed.historical_move_pct=0;
+          if(typeof parsed.guidance_up!=="boolean") parsed.guidance_up=false;
+          if(typeof parsed.options_underpriced!=="boolean") parsed.options_underpriced=false;
+          // Abstain if earnings data is too incomplete to be useful
+          if(!parsed.abstain&&parsed.earnings_within_7_days&&parsed.beat_streak===0&&parsed.implied_move_pct===0){
+            parsed.abstain=true;
+            parsed.direction="HOLD";
+            parsed.conviction=0;
+            parsed.reasoning="Insufficient earnings data found - abstaining to avoid unreliable signal";
+          }
+          if(parsed.earnings_date){
+            var beatStr=parsed.beat_streak>0?(parsed.beat_streak+"/4 quarters"):"data unavailable";
+            var moveStr=parsed.implied_move_pct>0?(parsed.implied_move_pct+"% implied vs "+parsed.historical_move_pct+"% historical"):"move data unavailable";
+            parsed.earningsData="Earnings: "+parsed.earnings_date+" | Beat streak: "+beatStr+" | Guidance up: "+(parsed.guidance_up?"YES":"NO")+" | "+moveStr+" | Underpriced: "+(parsed.options_underpriced?"YES":"NO");
+          }
+        }
         if(names[i]==="Soros (Sentiment)"&&parsed.put_call_ratio!==undefined) parsed.sentimentdata="P/C: "+(parsed.put_call_ratio||"?")+" | Short int: "+(parsed.short_interest_pct||"?")+"%"+(parsed.squeeze_potential?" SQUEEZE RISK":"")+" | News: "+(parsed.news_momentum||"?")+(parsed.analyst_change?" | "+parsed.analyst_change:"");
         if(parsed.option_type) parsed.optionsplay=parsed.option_type+" | Strike: $"+(parsed.option_strike||"?")+" | Expiry: "+(parsed.option_expiry||"3-5 days")+" | Est. Premium: "+(parsed.option_premium_est||"?");
         votes[names[i]]=parsed;
