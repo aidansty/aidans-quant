@@ -197,20 +197,46 @@ const SCANNER_CANDIDATES_PROMPT = function(liveStr, regimeData, accountCash) {
 
   if (regime === "TRENDING_BULL") {
     regimeSection = "REGIME: TRENDING BULL - Hunt CALL candidates. Strong uptrends, bullish catalysts, unusual call volume, sector inflows.\n";
-    strategySection = "Hunt calls: breakouts with catalyst, earnings beats, unusual call flow 3x+, sector leaders, oversold bounces.\n";
+    strategySection = "Hunt calls using ANY of these 7 setups:\n"
+      + "1. CATALYST - earnings, FDA, Fed, product launch within 7 days\n"
+      + "2. MOMENTUM - strong uptrend, consecutive up days, breaking resistance\n"
+      + "3. MEAN REVERSION - strong stock down 5-10% from recent high for no reason, bouncing from support\n"
+      + "4. SQUEEZE - short interest above 15%, stock at key level, catalyst incoming\n"
+      + "5. SECTOR SYMPATHY - sector leader just made big move, find smaller stocks in same sector that havent moved yet\n"
+      + "6. EARNINGS DRIFT - stock beat earnings in last 3 days and is still climbing as funds buy in\n"
+      + "7. VOLUME SPIKE - stock showing 3x+ normal volume without obvious news, institutional accumulation likely\n";
   } else if (regime === "TRENDING_BEAR") {
     regimeSection = "REGIME: TRENDING BEAR - Hunt PUT candidates. Breakdowns below support, negative catalysts, unusual put volume, sector selling.\n";
-    strategySection = "Hunt puts: breakdowns below support, weak earnings expected, unusual put flow 3x+, sector laggards, macro headwind stocks.\n";
+    strategySection = "Hunt puts using ANY of these 7 setups:\n"
+      + "1. CATALYST - negative earnings, guidance cut, regulatory issue within 7 days\n"
+      + "2. BREAKDOWN - stock breaking below key support with volume, downtrend accelerating\n"
+      + "3. MEAN REVERSION DOWN - weak stock up 5-10% from recent low for no reason, rolling over from resistance\n"
+      + "4. SHORT SQUEEZE FAILURE - heavily shorted stock that failed to squeeze, now dropping fast\n"
+      + "5. SECTOR SYMPATHY DOWN - sector leader just dropped big, find smaller stocks in same sector lagging the move\n"
+      + "6. EARNINGS DRIFT DOWN - stock missed earnings in last 3 days and still sliding as funds sell\n"
+      + "7. VOLUME SPIKE DOWN - stock showing 3x+ normal volume selling without obvious news, institutional distribution\n";
   } else if (regime === "HIGH_VOLATILITY") {
     regimeSection = "REGIME: HIGH VOLATILITY VIX "+vix+" - Binary events only within 3 days. Both directions valid.\n";
-    strategySection = "Binary events only: earnings within 3 days, FDA decisions, Fed/CPI events, geopolitical sector plays.\n";
+    strategySection = "High volatility setups - both directions:\n"
+      + "1. BINARY CATALYST - earnings, FDA, Fed within 3 days, clear directional lean\n"
+      + "2. SQUEEZE - high short interest stock at key level, could explode either direction\n"
+      + "3. SECTOR SYMPATHY - major sector move just happened, find stocks that havent reacted yet\n"
+      + "4. VOLUME SPIKE - unusual volume 3x+ suggesting institutional move incoming\n";
   } else if (regime === "EVENT_DRIVEN") {
     regimeSection = "REGIME: EVENT DRIVEN - Hard catalysts within 3 days only. Both directions valid.\n";
-    strategySection = "Catalyst plays only within 3 days: earnings, Fed/CPI, FDA, product launches, regulatory decisions.\n";
+    strategySection = "Event driven setups - both directions:\n"
+      + "1. HARD CATALYST - earnings, Fed/CPI, FDA, product launch within 3 days\n"
+      + "2. EARNINGS DRIFT - stock reported in last 2 days and still moving strongly\n"
+      + "3. SECTOR SYMPATHY - major event just moved a sector leader, find sympathy plays\n"
+      + "4. SQUEEZE INTO EVENT - high short interest stock with catalyst incoming\n";
   } else {
     // CHOPPY_NEUTRAL or UNKNOWN - conservative
     regimeSection = "REGIME: CHOPPY NEUTRAL - Very selective. Imminent catalyst required. Size down.\n";
-    strategySection = "Conservative only: earnings within 2 days, hard catalysts, sector outliers, volatility compression plays.\n";
+    strategySection = "Conservative setups - be very selective:\n"
+      + "1. HARD CATALYST - must be within 2 days, not 7\n"
+      + "2. EARNINGS DRIFT - stock reported in last 1-2 days and moving strongly with volume\n"
+      + "3. SECTOR OUTLIER - one sector moving clearly while rest of market is choppy\n"
+      + "4. SQUEEZE - extreme short interest with imminent catalyst\n";
   }
 
   return "You are the Head Quant at an asymmetric AI hedge fund focused on OPTIONS TRADING. Today: "+today+".\n\n"
@@ -226,7 +252,7 @@ const SCANNER_CANDIDATES_PROMPT = function(liveStr, regimeData, accountCash) {
     + "Search the market RIGHT NOW and identify the 4 best stocks for options plays based on this regime AND budget.\n\n"
     + "Current market prices: "+liveStr+"\n\n"
     + "REQUIREMENTS for every candidate:\n"
-    + "- Has catalyst OR strong momentum within 1-7 days\n"
+    + "- Has ONE of these setups: catalyst, momentum, mean reversion, squeeze, sector sympathy play, earnings drift, or volume spike\n"
     + "- Liquid options - open interest above 100, daily stock volume above 500K\n"
     + "- Stock price under $"+maxStockPrice+" so options stay affordable\n"
     + "- ATM option ask ideally under $"+maxPremium+" per share\n"
