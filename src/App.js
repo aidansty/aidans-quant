@@ -387,7 +387,7 @@ export default function QuantDashboard() {
   }
 
   async function fetchLivePrices(){
-    var syms=["SPY","QQQ","NVDA","AAPL","MSFT","META","AMD","AMZN","TSLA","GLD","XLE","SOFI","MU","AMAT"];
+    var syms=["SPY","QQQ","NVDA","AAPL","MSFT","META","AMD","AMZN","TSLA","GLD","XLE","SOFI","MU","AMAT","COIN","UBER","PLTR","HOOD","MARA","BAC","WFC","C","SNAP","PYPL","RIVN","NIO","KEY","VALE","F","ALLY","OPEN","DKNG","RBLX","UPST","ABNB","DASH"];
     var extra=optionsPositions.map(function(o){ return o.symbol; });
     syms=[...new Set([...syms,...extra])];
     try{
@@ -684,6 +684,18 @@ export default function QuantDashboard() {
 
   async function runAgentsOnSymbol(symbol){
     var live=livePrices[symbol]||{};
+    // If stock not in price feed, fetch it now so Cohen has real data
+    if(!live.price){
+      try{
+        var priceRes=await fetch("/api/prices?symbols="+symbol);
+        var priceData=await priceRes.json();
+        if(priceData&&priceData[symbol]){
+          live=priceData[symbol];
+          // Add to live prices state so ticker shows in feed
+          setLivePrices(function(prev){ var next=Object.assign({},prev); next[symbol]=live; return next; });
+        }
+      }catch(e){ console.warn("Price fetch failed for "+symbol); }
+    }
     var livePrice=live.price||null;
     var priceStr="Price:$"+(live.price?live.price.toFixed(2):"?")+", Change:"+(live.change?live.change.toFixed(2):"0")+"%, High:$"+(live.high?live.high.toFixed(2):"?")+", Low:$"+(live.low?live.low.toFixed(2):"?")+", Vol:"+(live.volume||0).toLocaleString();
     var chainData = await fetchOptionsChain(symbol, livePrice);
