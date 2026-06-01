@@ -260,7 +260,8 @@ const SCANNER_CANDIDATES_PROMPT = function(liveStr, regimeData, accountCash) {
     + "Max underlying stock price: $"+maxStockPrice+"\n"
     + stockExamples+"\n"
     + "=== END BUDGET ===\n\n"
-    + "Search the market RIGHT NOW and identify the 4 best stocks for options plays based on this regime AND budget.\n\n"
+    + "STEP 1: Search the web for what is actually moving in the market RIGHT NOW today - unusual volume, breakouts, sector momentum, earnings reactions, analyst upgrades.\n"
+    + "STEP 2: From what you find, identify the 4 best stocks for options plays that match this regime AND budget.\n\n"
     + "Current market prices: "+liveStr+"\n\n"
     + "REQUIREMENTS for every candidate:\n"
     + "- Has ONE of these setups: catalyst, momentum, mean reversion, squeeze, sector sympathy play, earnings drift, or volume spike\n"
@@ -900,8 +901,8 @@ export default function QuantDashboard() {
     setScanStatus(huntingMsg);
     try{
       var liveStr=Object.entries(livePrices).map(function(e){ return e[0]+":$"+(e[1].price?e[1].price.toFixed(2):"?"); }).join(", ");
-      var userMsg = "Search market now for best options plays based on current regime: "+regimeName+" (bias: "+regimeBias+"). Today: "+new Date().toLocaleDateString()+". Return 6 candidates as pure JSON only.";
-      var candTxt=await callClaudeJSON(SCANNER_CANDIDATES_PROMPT(liveStr, regime, cashBalance),[{role:"user",content:userMsg}]);
+      var userMsg = "Search the market RIGHT NOW for what is actually moving today. Look for: unusual volume spikes, stocks breaking out or breaking down, sector momentum, earnings reactions, analyst upgrades or downgrades today. Then pick the 4 best options plays from what you find based on regime: "+regimeName+" (bias: "+regimeBias+"). Today: "+new Date().toLocaleDateString()+". Return ONLY pure JSON with 4 tickers.";
+      var candTxt=await callClaude(SCANNER_CANDIDATES_PROMPT(liveStr, regime, cashBalance),[{role:"user",content:userMsg}]);
       var clean=candTxt.split("\u0060\u0060\u0060json").join("").split("\u0060\u0060\u0060").join("").trim();
       var s=clean.indexOf("{"),e=clean.lastIndexOf("}");
       if(s===-1||e===-1) throw new Error("Scanner returned no JSON. Please try again.");
