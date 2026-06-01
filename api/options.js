@@ -10,23 +10,65 @@ export default async function handler(req, res) {
   const { symbol, price } = req.query;
   if (!symbol) { res.status(400).json({ error: "symbol required" }); return; }
 
-  try {
-    // Step 1: Get available expiration dates for this symbol
-    const metaUrl = "https://query1.finance.yahoo.com/v7/finance/options/" + symbol;
-    const metaRes = await fetch(metaUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+  // Try multiple Yahoo Finance endpoints with different headers
+  async function fetchYahoo(url) {
+    const headerSets = [
+      {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Origin": "https://finance.yahoo.com",
+        "Referer": "https://finance.yahoo.com/quote/" + symbol + "/options/",
+        "Cache-Control": "no-cache"
+      },
+      {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
         "Accept": "application/json",
-        "Accept-Language": "en-US,en;q=0.9"
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://finance.yahoo.com/"
       }
-    });
+    ];
 
-    if (!metaRes.ok) {
+    for (const headers of headerSets) {
+      try {
+        const r = await fetch(url, { headers });
+        if (r.ok) {
+          const data = await r.json();
+          if (data?.optionChain?.result?.[0]) return data;
+        }
+      } catch(e) { continue; }
+    }
+
+    // Try query2 as fallback
+    const altUrl = url.replace("query1.finance.yahoo.com", "query2.finance.yahoo.com");
+    try {
+      const r = await fetch(altUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Accept": "application/json",
+          "Referer": "https://finance.yahoo.com/"
+        }
+      });
+      if (r.ok) {
+        const data = await r.json();
+        if (data?.optionChain?.result?.[0]) return data;
+      }
+    } catch(e) {}
+
+    return null;
+  }
+
+  try {
+    // Step 1: Get available expiration dates
+    const metaUrl = "https://query1.finance.yahoo.com/v7/finance/options/" + symbol;
+    const metaData = await fetchYahoo(metaUrl);
+
+    if (!metaData) {
       res.status(200).json({ error: "Yahoo Finance unavailable", symbol: symbol });
       return;
     }
 
-    const metaData = await metaRes.json();
     const result = metaData?.optionChain?.result?.[0];
     if (!result) {
       res.status(200).json({ error: "No options data", symbol: symbol });
@@ -40,7 +82,6 @@ export default async function handler(req, res) {
     const sevenDays = 7 * 86400;
     const fourteenDays = 14 * 86400;
 
-    // Prefer 3-7 days, fall back to 7-14 days, then take nearest
     let targetExp = expirations.find(function(e) {
       var diff = e - now;
       return diff >= threeDays && diff <= sevenDays;
@@ -51,9 +92,7 @@ export default async function handler(req, res) {
         return diff >= threeDays && diff <= fourteenDays;
       });
     }
-    if (!targetExp && expirations.length > 0) {
-      targetExp = expirations[0];
-    }
+    if (!targetExp && expirations.length > 0) targetExp = expirations[0];
     if (!targetExp) {
       res.status(200).json({ error: "No suitable expiration found", symbol: symbol });
       return;
@@ -61,33 +100,24 @@ export default async function handler(req, res) {
 
     // Step 3: Fetch the chain for that expiration
     const chainUrl = "https://query1.finance.yahoo.com/v7/finance/options/" + symbol + "?date=" + targetExp;
-    const chainRes = await fetch(chainUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json",
-        "Accept-Language": "en-US,en;q=0.9"
-      }
-    });
+    const chainData = await fetchYahoo(chainUrl);
 
-    if (!chainRes.ok) {
+    if (!chainData) {
       res.status(200).json({ error: "Chain fetch failed", symbol: symbol });
       return;
     }
 
-    const chainData = await chainRes.json();
     const chainResult = chainData?.optionChain?.result?.[0];
     if (!chainResult) {
       res.status(200).json({ error: "No chain result", symbol: symbol });
       return;
     }
 
-    const currentPrice = price ? parseFloat(price) : (chainResult.underlyingSymbol ? null : null);
     const spotPrice = chainResult.quote?.regularMarketPrice || parseFloat(price) || 0;
-
     const calls = chainResult.options?.[0]?.calls || [];
     const puts = chainResult.options?.[0]?.puts || [];
 
-    // Step 4: Find ATM strike (closest to current price)
+    // Step 4: Find ATM strike
     function findATM(contracts, spot) {
       if (!contracts.length || !spot) return null;
       return contracts.reduce(function(best, c) {
@@ -99,10 +129,9 @@ export default async function handler(req, res) {
     const atmCall = findATM(calls, spotPrice);
     const atmPut = findATM(puts, spotPrice);
 
-    // Step 5: Calculate spread quality metrics
+    // Step 5: Analyze contract
     function analyzeContract(contract, type) {
       if (!contract) return null;
-
       var bid = contract.bid || 0;
       var ask = contract.ask || 0;
       var spread = ask - bid;
@@ -114,25 +143,13 @@ export default async function handler(req, res) {
       var delta = contract.delta ? contract.delta.toFixed(2) : null;
       var theta = contract.theta ? contract.theta.toFixed(4) : null;
       var gamma = contract.gamma ? contract.gamma.toFixed(4) : null;
-
-      // Liquidity scoring
-      var liquidityOk = oi >= 500 && spread <= 0.15;
-      var spreadOk = spreadPct < 10; // spread under 10% of premium = acceptable
-      var volumeOk = vol >= 100;
-
-      // Overall quality score 0-100
+      var liquidityOk = oi >= 200 && spread <= 0.30;
       var score = 0;
-      if (oi >= 500) score += 30;
-      else if (oi >= 100) score += 15;
-      if (spread <= 0.05) score += 25;
-      else if (spread <= 0.15) score += 15;
-      else if (spread <= 0.30) score += 5;
-      if (vol >= 500) score += 20;
-      else if (vol >= 100) score += 10;
-      if (spreadPct < 5) score += 15;
-      else if (spreadPct < 10) score += 8;
+      if (oi >= 500) score += 30; else if (oi >= 100) score += 15;
+      if (spread <= 0.05) score += 25; else if (spread <= 0.15) score += 15; else if (spread <= 0.30) score += 5;
+      if (vol >= 500) score += 20; else if (vol >= 100) score += 10;
+      if (spreadPct < 5) score += 15; else if (spreadPct < 10) score += 8;
       if (iv && parseFloat(iv) > 0) score += 10;
-
       return {
         type: type,
         strike: contract.strike,
@@ -150,8 +167,6 @@ export default async function handler(req, res) {
         theta: theta,
         gamma: gamma,
         liquidityOk: liquidityOk,
-        spreadOk: spreadOk,
-        volumeOk: volumeOk,
         liquidityScore: score,
         liquidityGrade: score >= 70 ? "EXCELLENT" : score >= 50 ? "GOOD" : score >= 30 ? "FAIR" : "POOR",
         estimatedCost: midpoint > 0 ? "$" + (midpoint * 100).toFixed(0) + " per contract" : "unknown"
@@ -161,7 +176,6 @@ export default async function handler(req, res) {
     const callData = analyzeContract(atmCall, "CALL");
     const putData = analyzeContract(atmPut, "PUT");
 
-    // Step 6: Find next 2 OTM strikes for context
     function getOTMOptions(contracts, spot, type, count) {
       if (!contracts.length || !spot) return [];
       var sorted = contracts.slice().sort(function(a, b) {
@@ -181,14 +195,9 @@ export default async function handler(req, res) {
       });
     }
 
-    const otmCalls = getOTMOptions(calls, spotPrice, "CALL", 2);
-    const otmPuts = getOTMOptions(puts, spotPrice, "PUT", 2);
-
-    // Step 7: Overall options environment summary for this stock
     var totalCallOI = calls.reduce(function(s, c) { return s + (c.openInterest || 0); }, 0);
     var totalPutOI = puts.reduce(function(s, c) { return s + (c.openInterest || 0); }, 0);
     var stockPCRatio = totalCallOI > 0 ? (totalPutOI / totalCallOI).toFixed(2) : null;
-
     var avgCallIV = calls.length > 0
       ? (calls.reduce(function(s, c) { return s + (c.impliedVolatility || 0); }, 0) / calls.length * 100).toFixed(1)
       : null;
@@ -200,8 +209,8 @@ export default async function handler(req, res) {
       daysToExpiry: Math.ceil((targetExp - now) / 86400),
       atmCall: callData,
       atmPut: putData,
-      otmCalls: otmCalls,
-      otmPuts: otmPuts,
+      otmCalls: getOTMOptions(calls, spotPrice, "CALL", 2),
+      otmPuts: getOTMOptions(puts, spotPrice, "PUT", 2),
       stockPCRatio: stockPCRatio,
       avgCallIV: avgCallIV ? avgCallIV + "%" : null,
       totalCallOI: totalCallOI,
@@ -211,7 +220,6 @@ export default async function handler(req, res) {
     });
 
   } catch (err) {
-    // Graceful fallback — never crash, just return error flag
     res.status(200).json({
       error: err.message,
       symbol: symbol,
